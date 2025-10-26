@@ -61,7 +61,8 @@ def main():
         print(f'Dataset {dataset} not found in manifest')
         return
 
-    index_file = entry.get('index')
+    # 兼容旧 manifest 的 'index' 字段，以及新的 'index_safe' / 'index_original'
+    index_file = entry.get('index_safe') or entry.get('index') or entry.get('index_original')
     vectors_file = entry.get('vectors')
     meta = entry.get('meta', [])
 

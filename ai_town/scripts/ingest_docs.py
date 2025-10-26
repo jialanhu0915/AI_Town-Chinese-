@@ -36,9 +36,12 @@ def ingest(path: str, chunk_size: int = 200, overlap: int = 50, embed_model: str
     vec_file = DATA_DIR / (p.stem + "_vectors.npy")
     np.save(vec_file, vectors)
     index_path = None
+    index_safe_name = None
     if build_index:
         try:
             index_path = build_faiss_index(vectors, index_name=p.stem)
+            # index_path 是实际保存的文件路径（通常为 ASCII-safe 名称）
+            index_safe_name = Path(index_path).name
         except Exception as e:
             index_path = None
             logger.warning(f"构建 Faiss 索引失败: {e}")
@@ -56,7 +59,8 @@ def ingest(path: str, chunk_size: int = 200, overlap: int = 50, embed_model: str
         manifest = json.loads(MANIFEST.read_text(encoding='utf-8'))
     manifest[p.stem] = {
         'vectors': str(vec_file.name),
-        'index': str(Path(index_path).name) if index_path else None,
+        'index_original': f"{p.stem}.index",
+        'index_safe': index_safe_name,
         'meta': meta
     }
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
