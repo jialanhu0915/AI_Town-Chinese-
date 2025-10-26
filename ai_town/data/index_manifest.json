@@ -1,0 +1,13 @@
+{
+  "sample": {
+    "vectors": "sample_vectors.npy",
+    "index": "sample.index",
+    "meta": [
+      {
+        "source": "sample.txt",
+        "chunk_id": 0,
+        "text": "This is a sample document for AI Town. It contains some lines for testing the ingest pipeline."
+      }
+    ]
+  }
+}
