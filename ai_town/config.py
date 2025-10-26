@@ -16,11 +16,14 @@ GEN_MODEL_PATH = os.environ.get('AI_TOWN_GEN_MODEL', r'B:\OllamaModels\distilgpt
 # 默认嵌入后端：'hf' | 'ollama' | 'auto'
 DEFAULT_EMBED_METHOD = os.environ.get('AI_TOWN_EMBED_METHOD', 'hf')
 
-# 默认生成模型（用于本地 transformers 回退），可以是 HF 名称或本地路径
+# 默认生成模型（用于本地 transformers 回退），默认为本地 GEN_MODEL_PATH（优先使用本地模型，避免联网）
 DEFAULT_GEN_MODEL = os.environ.get('AI_TOWN_GEN_MODEL_NAME', GEN_MODEL_PATH)
 
 # 是否默认启用 Ollama（若启用会尝试 HTTP/CLI 调用）；默认 False，按需开启
 DEFAULT_ENABLE_OLLAMA = os.environ.get('AI_TOWN_ENABLE_OLLAMA', 'false').lower() in ('1', 'true', 'yes')
+
+# 是否允许在线下载模型（如果 False 且指定模型路径不存在，将报错）
+AI_TOWN_ALLOW_ONLINE_GEN = os.environ.get('AI_TOWN_ALLOW_ONLINE_GEN', 'false').lower() in ('1', 'true', 'yes')
 
 # 日志级别
 DEFAULT_LOG_LEVEL = os.environ.get('AI_TOWN_LOG_LEVEL', 'INFO')
