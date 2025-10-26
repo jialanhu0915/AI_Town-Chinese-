@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+streamlit
+sentence-transformers
+faiss-cpu
+sqlalchemy
+python-dotenv
+httpx
+pytest
+pydantic
+loguru
+pdfminer.six
+pypdf
