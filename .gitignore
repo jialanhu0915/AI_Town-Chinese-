@@ -1,1 +1,49 @@
-__pycache__
+# Python 缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 模拟结果和日志
+simulation_result_*.json
+*.log
+logs/
+ai_town/logs/
+
+# 数据文件
+*.db
+*.sqlite
+*.sqlite3
+data/
+ai_town/data/
+
+# 临时文件
+*.tmp
+*.temp
+temp/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 测试覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
+
+# 其他
+*.bak
+*.orig

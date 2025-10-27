@@ -379,6 +379,119 @@ class ActionPlanner:
             'description': 'Observe the environment'
         }]
     
+    async def _create_leisure_plan(self, world_state: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """创建休闲计划"""
+        actions = []
+        
+        # 根据时间和心情选择休闲活动
+        time_of_day = GameTime.get_time_of_day()
+        
+        if time_of_day == "evening":
+            # 晚上去公园散步
+            actions.append({
+                'type': 'move',
+                'target_position': {'x': 55, 'y': 52, 'area': 'park'},
+                'description': 'Go to the park for an evening walk'
+            })
+            
+            actions.append({
+                'type': 'socialize',
+                'activity': 'enjoy_nature',
+                'duration': 20,
+                'description': 'Enjoy the peaceful evening at the park'
+            })
+        else:
+            # 其他时间在附近闲逛
+            actions.append({
+                'type': 'socialize',
+                'activity': 'explore',
+                'duration': 10,
+                'description': 'Take a leisurely stroll around the area'
+            })
+        
+        return actions
+    
+    async def _create_maintenance_plan(self, world_state: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """创建维护/保养计划"""
+        actions = []
+        
+        # 基于智能体的能量和需求
+        if self.agent.energy < 40:
+            # 低能量时回家休息
+            actions.append({
+                'type': 'move',
+                'target_position': {'x': 10, 'y': 10, 'area': 'home'},
+                'description': 'Go home to rest and recharge'
+            })
+            
+            actions.append({
+                'type': 'sleep',
+                'duration': 30,
+                'description': 'Take a restorative nap'
+            })
+        else:
+            # 正常维护活动
+            actions.append({
+                'type': 'socialize',
+                'activity': 'self_care',
+                'duration': 15,
+                'description': 'Take some time for personal maintenance'
+            })
+        
+        return actions
+    
+    async def _create_daily_routine(self, world_state: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """创建日常作息计划"""
+        actions = []
+        time_of_day = GameTime.get_time_of_day()
+        
+        if time_of_day == "morning":
+            # 早晨例行公事
+            actions.extend([
+                {
+                    'type': 'move',
+                    'target_position': {'x': 15, 'y': 15, 'area': 'kitchen'},
+                    'description': 'Go to kitchen for morning coffee'
+                },
+                {
+                    'type': 'eat',
+                    'duration': 15,
+                    'description': 'Have morning coffee and light breakfast'
+                }
+            ])
+        elif time_of_day == "afternoon":
+            # 下午活动
+            actions.append({
+                'type': 'work',
+                'work_type': 'daily_tasks',
+                'duration': 30,
+                'description': 'Focus on daily work tasks'
+            })
+        elif time_of_day == "evening":
+            # 晚间放松
+            actions.extend([
+                {
+                    'type': 'socialize',
+                    'activity': 'relax',
+                    'duration': 20,
+                    'description': 'Evening relaxation time'
+                },
+                {
+                    'type': 'move',
+                    'target_position': {'x': 10, 'y': 10, 'area': 'home'},
+                    'description': 'Head home for the evening'
+                }
+            ])
+        else:  # night
+            # 夜间休息
+            actions.append({
+                'type': 'sleep',
+                'duration': 120,  # 2小时
+                'description': 'Sleep to restore energy'
+            })
+        
+        return actions
+    
     def _generate_default_action(self, world_state: Dict[str, Any], needs: Dict[str, float]) -> Dict[str, Any]:
         """生成默认行动"""
         # 根据最高需求生成行动

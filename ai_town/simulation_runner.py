@@ -144,20 +144,20 @@ def create_charlie():
 
 async def main():
     """主函数"""
-    print("🏘️ Welcome to AI Town!")
+    print("🏘️ 欢迎来到 AI 小镇！")
     print("=" * 50)
     
     # 初始化游戏时间
     GameTime.initialize(time_multiplier=10.0)  # 10倍速度
-    print(f"⏰ Game time initialized: {GameTime.format_time()}")
-    print(f"🔄 Time multiplier: 10x (1 real minute = 10 game minutes)")
+    print(f"⏰ 游戏时间初始化: {GameTime.format_time()}")
+    print(f"🔄 时间倍率: 10x (现实1分钟 = 游戏10分钟)")
     
     # 创建世界
     world = World()
-    print(f"🗺️  World created with {world.map.width}x{world.map.height} map")
+    print(f"🗺️  世界已创建，地图大小: {world.map.width}x{world.map.height}")
     
     # 创建智能体
-    print("\n👥 Creating agents...")
+    print("\n👥 正在创建智能体...")
     
     alice = Alice()
     bob = create_bob()
@@ -168,42 +168,42 @@ async def main():
     world.add_agent(bob) 
     world.add_agent(charlie)
     
-    print(f"✅ Added {len(world.agents)} agents:")
+    print(f"✅ 已添加 {len(world.agents)} 个智能体:")
     for agent_id, agent in world.agents.items():
-        print(f"   - {agent.name} ({agent.age}): {agent.background[:50]}...")
+        print(f"   - {agent.name} ({agent.age}岁): {agent.background[:50]}...")
     
     # 显示初始世界状态
-    print(f"\n🌍 Initial world state:")
+    print(f"\n🌍 初始世界状态:")
     world_state = world.get_world_state()
-    print(f"   - Time: {world_state['current_time']} ({world_state['time_of_day']})")
-    print(f"   - Active agents: {len(world_state['agent_positions'])}")
-    print(f"   - Buildings: {len(world_state['map_data']['buildings'])}")
+    print(f"   - 时间: {world_state['current_time']} ({world_state['time_of_day']})")
+    print(f"   - 活跃智能体: {len(world_state['agent_positions'])}")
+    print(f"   - 建筑物: {len(world_state['map_data']['buildings'])}")
     
     # 选择运行模式
-    print(f"\n🚀 Choose simulation mode:")
-    print("1. Run for specific duration")
-    print("2. Run with step-by-step control")
-    print("3. Run continuously (Ctrl+C to stop)")
+    print(f"\n🚀 选择模拟模式:")
+    print("1. 运行指定时长")
+    print("2. 逐步控制运行")
+    print("3. 连续运行 (按 Ctrl+C 停止)")
     
     try:
-        choice = input("Enter choice (1-3): ").strip()
+        choice = input("请输入选择 (1-3): ").strip()
         
         if choice == "1":
-            duration = int(input("Enter duration in minutes: "))
+            duration = int(input("请输入运行时长(分钟): "))
             await world.run_simulation(duration_minutes=duration)
             
         elif choice == "2":
-            print("\n⏯️  Step-by-step mode. Press Enter for next step, 'q' to quit:")
+            print("\n⏯️  逐步模式。按回车进行下一步，输入 'q' 退出:")
             step = 0
             while True:
-                user_input = input(f"Step {step} > ").strip().lower()
-                if user_input in ['q', 'quit', 'exit']:
+                user_input = input(f"第 {step} 步 > ").strip().lower()
+                if user_input in ['q', 'quit', 'exit', '退出']:
                     break
                 
                 step_results = await world.step()
                 
                 # 显示步骤结果
-                print(f"\n📊 Step {world.step_count} results:")
+                print(f"\n📊 第 {world.step_count} 步结果:")
                 for agent_id, result in step_results.items():
                     action_type = result.get('type', 'unknown')
                     agent = world.agents[agent_id]
@@ -213,7 +213,7 @@ async def main():
                 
                 # 显示当前事件
                 if world.current_events:
-                    print(f"\n📰 Current events ({len(world.current_events)}):")
+                    print(f"\n📰 当前事件 ({len(world.current_events)}):")
                     for event in world.current_events[-3:]:  # 显示最近3个事件
                         print(f"   • {event.description}")
                 
@@ -223,15 +223,15 @@ async def main():
             await world.run_simulation()
             
         else:
-            print("Invalid choice")
+            print("无效选择")
             return
             
     except KeyboardInterrupt:
-        print(f"\n⏹️ Simulation interrupted")
+        print(f"\n⏹️ 模拟已中断")
         world.stop_simulation()
     
     # 显示最终统计
-    print(f"\n📈 Final Statistics:")
+    print(f"\n📈 最终统计:")
     stats = world.get_simulation_stats()
     for key, value in stats.items():
         if isinstance(value, dict):
@@ -244,9 +244,9 @@ async def main():
     # 保存世界状态
     output_file = f"simulation_result_{GameTime.now().strftime('%Y%m%d_%H%M%S')}.json"
     world.save_world_state(output_file)
-    print(f"\n💾 World state saved to: {output_file}")
+    print(f"\n💾 世界状态已保存至: {output_file}")
     
-    print(f"\n🎉 Thank you for visiting AI Town!")
+    print(f"\n🎉 感谢访问 AI 小镇！")
 
 
 if __name__ == "__main__":
