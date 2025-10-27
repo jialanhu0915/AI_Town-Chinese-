@@ -39,6 +39,10 @@ class Alice(LLMEnhancedAgent):
             "闲暇时，她喜欢读书和尝试新的咖啡配方。"
         )
         
+        # 从配置文件获取 LLM 设置
+        from ai_town.config_loader import get_llm_config_for_agent
+        llm_config = get_llm_config_for_agent("alice")
+        
         super().__init__(
             agent_id="alice",
             name="Alice",
@@ -48,8 +52,13 @@ class Alice(LLMEnhancedAgent):
             initial_position=Position(25, 25, "coffee_shop"),
             occupation="coffee_shop_owner",
             work_area="coffee_shop",
-            llm_provider="mock"  # 可配置为 'ollama', 'openai', 'anthropic' 等
+            llm_provider=llm_config["provider"]
         )
+        
+        # 应用 LLM 配置
+        self.use_llm_for_planning = llm_config["use_llm_for_planning"]
+        self.use_llm_for_conversation = llm_config["use_llm_for_conversation"]
+        self.use_llm_for_reflection = llm_config["use_llm_for_reflection"]
         
         # Alice 特定的属性
         self.favorite_topics = ['coffee', 'books', 'travel', 'food', 'community']

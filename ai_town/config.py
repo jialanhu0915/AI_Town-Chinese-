@@ -71,3 +71,70 @@ PERSISTENCE_CONFIG = {
 for directory in PERSISTENCE_CONFIG.values():
     if isinstance(directory, Path):
         directory.mkdir(parents=True, exist_ok=True)
+
+# LLM 提供商配置
+LLM_CONFIG = {
+    # 默认 LLM 提供商优先级顺序
+    "default_provider": os.environ.get('AI_TOWN_LLM_PROVIDER', 'ollama'),
+    "fallback_chain": ["ollama", "openai", "mock"],
+    
+    # Ollama 配置
+    "ollama": {
+        "enabled": os.environ.get('AI_TOWN_OLLAMA_ENABLED', 'true').lower() in ('1', 'true', 'yes'),
+        "base_url": os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434'),
+        "model_name": os.environ.get('OLLAMA_MODEL', 'deepseek-r1:1.5b'),
+        "timeout": float(os.environ.get('OLLAMA_TIMEOUT', '60.0')),
+        "temperature": float(os.environ.get('OLLAMA_TEMPERATURE', '0.7')),
+        "max_tokens": int(os.environ.get('OLLAMA_MAX_TOKENS', '500')),
+    },
+    
+    # OpenAI 配置
+    "openai": {
+        "enabled": bool(os.environ.get('OPENAI_API_KEY')),
+        "api_key": os.environ.get('OPENAI_API_KEY'),
+        "model_name": os.environ.get('OPENAI_MODEL', 'gpt-3.5-turbo'),
+        "timeout": float(os.environ.get('OPENAI_TIMEOUT', '60.0')),
+        "temperature": float(os.environ.get('OPENAI_TEMPERATURE', '0.7')),
+        "max_tokens": int(os.environ.get('OPENAI_MAX_TOKENS', '500')),
+    },
+    
+    # Mock LLM 配置（测试用）
+    "mock": {
+        "enabled": True,  # 始终可用作为后备
+        "delay": float(os.environ.get('MOCK_LLM_DELAY', '0.1')),
+        "random_responses": os.environ.get('MOCK_LLM_RANDOM', 'true').lower() in ('1', 'true', 'yes'),
+    },
+}
+
+# 智能体 LLM 配置
+AGENT_LLM_CONFIG = {
+    # 各角色的默认 LLM 设置
+    "alice": {
+        "provider": os.environ.get('ALICE_LLM_PROVIDER', LLM_CONFIG["default_provider"]),
+        "use_llm_for_planning": os.environ.get('ALICE_LLM_PLANNING', 'true').lower() in ('1', 'true', 'yes'),
+        "use_llm_for_conversation": os.environ.get('ALICE_LLM_CONVERSATION', 'true').lower() in ('1', 'true', 'yes'),
+        "use_llm_for_reflection": os.environ.get('ALICE_LLM_REFLECTION', 'true').lower() in ('1', 'true', 'yes'),
+    },
+    
+    "bob": {
+        "provider": os.environ.get('BOB_LLM_PROVIDER', LLM_CONFIG["default_provider"]),
+        "use_llm_for_planning": os.environ.get('BOB_LLM_PLANNING', 'true').lower() in ('1', 'true', 'yes'),
+        "use_llm_for_conversation": os.environ.get('BOB_LLM_CONVERSATION', 'true').lower() in ('1', 'true', 'yes'),
+        "use_llm_for_reflection": os.environ.get('BOB_LLM_REFLECTION', 'true').lower() in ('1', 'true', 'yes'),
+    },
+    
+    "charlie": {
+        "provider": os.environ.get('CHARLIE_LLM_PROVIDER', LLM_CONFIG["default_provider"]),
+        "use_llm_for_planning": os.environ.get('CHARLIE_LLM_PLANNING', 'true').lower() in ('1', 'true', 'yes'),
+        "use_llm_for_conversation": os.environ.get('CHARLIE_LLM_CONVERSATION', 'true').lower() in ('1', 'true', 'yes'),
+        "use_llm_for_reflection": os.environ.get('CHARLIE_LLM_REFLECTION', 'true').lower() in ('1', 'true', 'yes'),
+    },
+    
+    # 全局默认设置
+    "default": {
+        "provider": LLM_CONFIG["default_provider"],
+        "use_llm_for_planning": True,
+        "use_llm_for_conversation": True, 
+        "use_llm_for_reflection": True,
+    }
+}

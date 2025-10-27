@@ -36,6 +36,10 @@ class Charlie(LLMEnhancedAgent):
             "他喜欢结识新朋友，探索这个小镇的魅力。"
         )
         
+        # 从配置文件获取 LLM 设置
+        from ai_town.config_loader import get_llm_config_for_agent
+        llm_config = get_llm_config_for_agent("charlie")
+        
         super().__init__(
             agent_id="charlie",
             name="Charlie",
@@ -45,8 +49,13 @@ class Charlie(LLMEnhancedAgent):
             initial_position=Position(60, 30, "office_1"),
             occupation="office_worker",
             work_area="office_1",
-            llm_provider="mock"  # 可配置为其他LLM提供商
+            llm_provider=llm_config["provider"]
         )
+        
+        # 应用 LLM 配置
+        self.use_llm_for_planning = llm_config["use_llm_for_planning"]
+        self.use_llm_for_conversation = llm_config["use_llm_for_conversation"]
+        self.use_llm_for_reflection = llm_config["use_llm_for_reflection"]
         
         # Charlie 特定的属性
         self.adaptation_level = 0.3  # 对新环境的适应程度

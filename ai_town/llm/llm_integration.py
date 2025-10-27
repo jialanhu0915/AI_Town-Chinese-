@@ -41,7 +41,7 @@ class LLMProvider(ABC):
 class OllamaProvider(LLMProvider):
     """Ollama 本地 LLM 提供者"""
     
-    def __init__(self, model_name: str = "llama2:7b-chat", base_url: str = "http://localhost:11434"):
+    def __init__(self, model_name: str = "tinyllama", base_url: str = "http://localhost:11434"):
         self.model_name = model_name
         self.base_url = base_url
         self.client = httpx.AsyncClient(timeout=60.0)
@@ -268,33 +268,50 @@ llm_manager = LLMManager()
 
 def setup_default_llm_providers():
     """设置默认的 LLM 提供者"""
+    from ai_town.config import LLM_CONFIG
+    from ai_town.config_loader import load_env_file
+    
+    # 加载配置文件
+    load_env_file()
     
     # 注册模拟提供者（始终可用）
     mock_provider = MockLLMProvider()
     llm_manager.register_provider("mock", mock_provider)
     
-    # 尝试注册 Ollama（如果可用）
-    try:
-        ollama_provider = OllamaProvider()
-        llm_manager.register_provider("ollama", ollama_provider, is_default=True)
-        logger.info("Ollama provider registered")
-    except Exception as e:
-        logger.warning(f"Failed to register Ollama provider: {e}")
-    
-    # 尝试注册 OpenAI（如果有 API key）
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if openai_key:
+    # 根据配置注册 Ollama
+    ollama_config = LLM_CONFIG.get("ollama", {})
+    if ollama_config.get("enabled", True):
         try:
-            openai_provider = OpenAIProvider(openai_key)
-            llm_manager.register_provider("openai", openai_provider, is_default=True)
-            logger.info("OpenAI provider registered")
+            model_name = ollama_config.get("model_name", "deepseek-r1:1.5b")
+            base_url = ollama_config.get("base_url", "http://localhost:11434")
+            ollama_provider = OllamaProvider(model_name=model_name, base_url=base_url)
+            
+            is_default = LLM_CONFIG.get("default_provider") == "ollama"
+            llm_manager.register_provider("ollama", ollama_provider, is_default=is_default)
+            logger.info(f"Ollama provider registered with model: {model_name}")
+        except Exception as e:
+            logger.warning(f"Failed to register Ollama provider: {e}")
+    
+    # 根据配置注册 OpenAI
+    openai_config = LLM_CONFIG.get("openai", {})
+    if openai_config.get("enabled", False) and openai_config.get("api_key"):
+        try:
+            model_name = openai_config.get("model_name", "gpt-3.5-turbo")
+            openai_provider = OpenAIProvider(openai_config["api_key"], model_name)
+            
+            is_default = LLM_CONFIG.get("default_provider") == "openai"
+            llm_manager.register_provider("openai", openai_provider, is_default=is_default)
+            logger.info(f"OpenAI provider registered with model: {model_name}")
         except Exception as e:
             logger.warning(f"Failed to register OpenAI provider: {e}")
     
     # 设置故障转移链
-    llm_manager.set_fallback_chain(["ollama", "openai", "mock"])
+    fallback_chain = LLM_CONFIG.get("fallback_chain", ["ollama", "openai", "mock"])
+    llm_manager.set_fallback_chain(fallback_chain)
     
     logger.info(f"Available LLM providers: {llm_manager.get_available_providers()}")
+    logger.info(f"Default provider: {LLM_CONFIG.get('default_provider', 'ollama')}")
+    logger.info(f"Fallback chain: {' -> '.join(fallback_chain)}")
 
 
 # 便捷函数
