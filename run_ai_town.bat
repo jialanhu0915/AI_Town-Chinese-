@@ -90,7 +90,7 @@ async def timed_simulation():
     world = World()
     alice = Alice()
     world.add_agent(alice)
-    print(f'🏃 Running simulation for %duration% minutes...')
+    print(f'🏃 模拟运行 %duration% 分钟...')
     await world.run_simulation(duration_minutes=%duration%)
 
 asyncio.run(timed_simulation())
@@ -110,32 +110,7 @@ goto menu
 echo.
 echo 运行基本功能测试...
 echo.
-python -c "
-from ai_town.core.time_manager import GameTime
-from ai_town.core.world import World
-from ai_town.agents.characters.alice import Alice
-
-print('🧪 Testing AI Town components...')
-print('⏰ Testing GameTime...')
-GameTime.initialize()
-print(f'   Current game time: {GameTime.format_time()}')
-print(f'   Time of day: {GameTime.get_time_of_day()}')
-
-print('🗺️  Testing World...')
-world = World()
-print(f'   Map size: {world.map.width}x{world.map.height}')
-print(f'   Buildings: {len(world.map.buildings)}')
-
-print('👤 Testing Alice agent...')
-alice = Alice()
-print(f'   Name: {alice.name}, Age: {alice.age}')
-print(f'   Position: ({alice.position.x}, {alice.position.y}) in {alice.position.area}')
-
-world.add_agent(alice)
-print(f'   Added to world. Total agents: {len(world.agents)}')
-
-print('✅ All basic tests passed!')
-"
+python test_basic.py
 echo.
 echo 测试完成！
 pause

@@ -30,12 +30,11 @@ class Alice(BaseAgent):
         }
         
         background = (
-            "Alice is a warm and friendly coffee shop owner in her early 30s. "
-            "She moved to this town 5 years ago to open her dream café. "
-            "Alice loves meeting new people and making everyone feel welcome. "
-            "She's known for her excellent coffee and her ability to remember "
-            "everyone's favorite orders. In her free time, she enjoys reading "
-            "and trying new coffee recipes."
+            "Alice 是一位温暖友好的咖啡店老板，今年32岁。"
+            "她5年前搬到这个小镇，开了她梦想中的咖啡店。"
+            "Alice 喜欢结识新朋友，让每个人都感到宾至如归。"
+            "她以出色的咖啡和记住每个人最爱的订单而闻名。"
+            "闲暇时，她喜欢读书和尝试新的咖啡配方。"
         )
         
         super().__init__(

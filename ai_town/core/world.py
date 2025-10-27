@@ -424,8 +424,8 @@ class World:
         self.is_running = True
         start_time = GameTime.now()
         
-        print(f"🏘️ AI Town simulation started at {GameTime.format_time()}")
-        print(f"👥 {len(self.agents)} agents active")
+        print(f"🏘️ AI 小镇模拟开始于 {GameTime.format_time()}")
+        print(f"👥 {len(self.agents)} 个智能体活跃中")
         
         try:
             while self.is_running:
@@ -434,7 +434,7 @@ class World:
                 
                 # 打印步骤信息
                 if self.step_count % 10 == 0:  # 每10步打印一次
-                    print(f"Step {self.step_count}: {len([r for r in step_results.values() if r.get('type') != 'idle'])} active actions")
+                    print(f"第 {self.step_count} 步: {len([r for r in step_results.values() if r.get('type') != 'idle'])} 个活跃行动")
                 
                 # 检查是否达到运行时长
                 if duration_minutes:
@@ -446,13 +446,13 @@ class World:
                 await asyncio.sleep(self.step_interval)
                 
         except KeyboardInterrupt:
-            print("\n⏹️ Simulation interrupted by user")
+            print("\n⏹️ 用户中断了模拟")
         finally:
             self.is_running = False
-            print(f"📊 Simulation ended after {self.step_count} steps")
-            print(f"📈 Total interactions: {self.stats['total_interactions']}")
-            print(f"🚶 Total movements: {self.stats['total_movements']}")
-            print(f"💬 Total conversations: {self.stats['total_conversations']}")
+            print(f"📊 模拟结束，共进行了 {self.step_count} 步")
+            print(f"📈 总互动次数: {self.stats['total_interactions']}")
+            print(f"🚶 总移动次数: {self.stats['total_movements']}")
+            print(f"💬 总对话次数: {self.stats['total_conversations']}")
     
     def stop_simulation(self):
         """停止模拟"""

@@ -33,11 +33,10 @@ def create_bob():
             }
             
             background = (
-                "Bob is a quiet and thoughtful bookstore owner in his late 40s. "
-                "He's been running the local bookstore for over 15 years and knows "
-                "everything about books and literature. Bob enjoys deep conversations "
-                "about philosophy, history, and science. He's a bit introverted but "
-                "very knowledgeable and helpful to customers."
+                "Bob 是一位安静而深思的书店老板，今年47岁。"
+                "他经营当地书店已有15年多，对书籍和文学了如指掌。"
+                "Bob 喜欢关于哲学、历史和科学的深度对话。"
+                "他有点内向，但知识渊博，乐于帮助顾客。"
             )
             
             super().__init__(
@@ -95,11 +94,10 @@ def create_charlie():
             }
             
             background = (
-                "Charlie is a 28-year-old office worker who moved to town recently "
-                "for a new job. He's still getting to know people and exploring "
-                "the community. Charlie is hardworking and ambitious, but also "
-                "values work-life balance. He enjoys meeting new people and "
-                "discovering what the town has to offer."
+                "Charlie 是一位28岁的上班族，最近因为新工作搬到了镇上。"
+                "他还在逐渐认识新朋友，探索这个社区。"
+                "Charlie 工作勤奋且有抱负，但也重视工作与生活的平衡。"
+                "他喜欢结识新朋友，探索这个小镇的魅力。"
             )
             
             super().__init__(
