@@ -346,21 +346,21 @@ class LLMEnhancedAgent(BaseAgent):
 {memory_desc}
 
 基于你的性格、当前情况和最近经历，你接下来想要做什么？
-请从以下行为类型中选择一个，并说明原因：
+请从以下行为类型中选择一个：
 
 1. move - 移动到新位置
-2. work - 工作相关活动
+2. work - 工作相关活动  
 3. socialize - 社交互动
 4. explore - 探索环境
 5. relax - 放松休息
 6. think - 思考反思
 7. sleep - 睡觉休息
 
-请以JSON格式回答，包含type、description和reason字段。
+重要：请严格按照以下JSON格式回答，不要添加任何额外文字：
 
-例如：
-{{"type": "work", "description": "整理书架", "reason": "现在是工作时间，需要维护好书店"}}
-"""
+{{"type": "work", "description": "整理书架", "reason": "现在是工作时间"}}
+
+JSON响应："""
 
         try:
             # 调用 LLM
@@ -368,14 +368,42 @@ class LLMEnhancedAgent(BaseAgent):
             
             # 解析 LLM 响应
             import json
+            import re
+            
             try:
-                decision = json.loads(llm_response.strip())
+                # 清理响应文本
+                cleaned_response = llm_response.strip()
+                
+                # 移除 markdown 代码块标记
+                if '```json' in cleaned_response:
+                    # 提取 ```json 和 ``` 之间的内容
+                    json_match = re.search(r'```json\s*\n(.*?)\n```', cleaned_response, re.DOTALL)
+                    if json_match:
+                        cleaned_response = json_match.group(1)
+                elif '```' in cleaned_response:
+                    # 提取 ``` 之间的内容
+                    json_match = re.search(r'```\s*\n(.*?)\n```', cleaned_response, re.DOTALL)
+                    if json_match:
+                        cleaned_response = json_match.group(1)
+                
+                # 如果响应包含多行，尝试找到 JSON 部分
+                lines = cleaned_response.split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith('{') and line.endswith('}'):
+                        cleaned_response = line
+                        break
+                
+                # 解析 JSON
+                decision = json.loads(cleaned_response)
                 return {
                     'type': decision.get('type', 'think'),
                     'description': decision.get('description', '思考当前情况'),
                     'reason': decision.get('reason', '')
                 }
-            except json.JSONDecodeError:
+                
+            except (json.JSONDecodeError, AttributeError) as e:
+                print(f"JSON 解析失败: {e}, 原始响应: {llm_response[:100]}...")
                 # LLM 返回格式有误，返回默认行为
                 return {
                     'type': 'think',
@@ -400,12 +428,11 @@ class LLMEnhancedAgent(BaseAgent):
         conversation_prompt = f"""
 {personality_desc}
 
-你想要和 {other_agent_name} 开始一段对话。
-{f'话题是: {topic}' if topic else '可以是任何你感兴趣的话题。'}
+你想要和 {other_agent_name} 开始对话。
+{f'话题: {topic}' if topic else ''}
 
-请生成一个自然、友好的开场白，符合你的性格特征。
-直接回答对话内容，不需要引号或格式。
-"""
+请生成一句简短、自然的开场白（不超过20字）。
+只回答对话内容，不要解释："""
 
         try:
             response = await ask_llm(conversation_prompt, provider=self.preferred_llm_provider)
@@ -429,7 +456,7 @@ class LLMEnhancedAgent(BaseAgent):
         
         messages = [
             {"role": "system", "content": personality_desc},
-            {"role": "system", "content": f"你正在和 {other_agent_name} 对话。请保持你的性格特征，给出自然的回应。"}
+            {"role": "system", "content": f"你正在和 {other_agent_name} 对话。请用1句话简短回应（不超过30字），保持你的性格特征。"}
         ]
         
         # 添加对话历史（最近5轮）
@@ -442,16 +469,25 @@ class LLMEnhancedAgent(BaseAgent):
         try:
             response = await chat_with_llm(messages, provider=self.preferred_llm_provider)
             
+            # 清理响应格式
+            cleaned_response = response.strip()
+            
+            # 移除可能的角色名称前缀
+            prefixes_to_remove = [f"{self.name}:", f"{self.name.lower()}:", "助手:", "AI:"]
+            for prefix in prefixes_to_remove:
+                if cleaned_response.startswith(prefix):
+                    cleaned_response = cleaned_response[len(prefix):].strip()
+            
             # 保存对话历史
             conversation_history.append({"role": "user", "content": f"{other_agent_name}: {message}"})
-            conversation_history.append({"role": "assistant", "content": response})
+            conversation_history.append({"role": "assistant", "content": cleaned_response})
             
             # 限制对话历史长度
             if len(conversation_history) > 20:
                 conversation_history = conversation_history[-20:]
                 self.conversation_history[other_agent_name] = conversation_history
             
-            return response.strip()
+            return cleaned_response
             
         except Exception as e:
             # 后备回应
