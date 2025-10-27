@@ -1,21 +1,61 @@
-# AI 小镇 - 开发说明
+# AI Town - 智能体小镇模拟系统
 
-本目录保存 AI 小镇项目的 Python 实现。下面包含快速上手、模型配置与常用命令示例（Windows cmd.exe）。
+基于斯坦福大学 AI Town 论文的本地化实现，创建一个多智能体生活模拟系统。
 
-## 环境配置
+## 🏘️ 项目概述
 
-1. 在 Windows cmd.exe 中创建虚拟环境并激活：
+AI Town 是一个多智能体生活模拟系统，其中多个 AI 角色在虚拟小镇中自主生活、互动和发展关系。
 
+### 核心特性
+
+- **多智能体系统**: 多个 AI 角色同时存在并互动
+- **持续生活模拟**: 角色有记忆、计划、社交关系
+- **自主行为**: 角色会自主决定行动、对话、移动
+- **记忆系统**: 实现记忆流、反思机制
+- **社交互动**: 角色间会形成友谊、讨论话题
+
+## 🚀 快速开始
+
+### 使用启动脚本 (推荐)
+
+1. 双击运行 `run_ai_town.bat` 启动脚本
+2. 选择选项 1 "运行 AI Town 模拟 (交互式)"
+3. 观察智能体的自主行为和互动
+
+### 手动启动
+
+1. 创建虚拟环境并激活：
    ```cmd
    python -m venv .venv
    .venv\Scripts\activate
    ```
 
 2. 安装依赖：
-
    ```cmd
    pip install -r ai_town\requirements.txt
    ```
+
+3. 运行模拟：
+   ```cmd
+   python ai_town\simulation_runner.py
+   ```
+
+## 🏗️ 项目架构
+
+```
+ai_town/
+├── agents/              # 智能体系统
+│   ├── base_agent.py   # 基础智能体类
+│   ├── memory/         # 记忆系统
+│   ├── planning/       # 行为规划
+│   └── characters/     # 角色实现
+├── core/               # 核心系统
+│   ├── world.py        # 世界状态管理
+│   └── time_manager.py # 时间系统
+├── environment/        # 环境系统
+│   └── map.py         # 地图和物理
+└── simulation/         # 模拟引擎
+```
 
 如果有 GPU (CUDA 11.8)，建议安装对应 PyTorch：
 

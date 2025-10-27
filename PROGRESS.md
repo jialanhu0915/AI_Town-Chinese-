@@ -1,6 +1,16 @@
 # AI_Town — 当前进度与待办（2025-10-26）
 
-## 一、项目概况（目标回顾）
+## 一、项目概## 三、关键修复与当前状态说明（已验证）
+
+- Faiss 写入中文/含非 ASCII 路径异常被解决：
+  - 现在索引实际以 ASCII-safe 名保存（percent-encode + md5），保证 Faiss 写入成功。
+  - manifest 中保留了 `index_original`（可读原名）以便追踪和 UI 展示。
+- mojibake / 旧临时文件：
+  - 在早期测试中生成的一些"乱码名"文件（mojibake）存在磁盘上。为了安全，先不直接删除，提供了 `clean_data_dir.py` 进行备份与清理（已运行并删除了旧备份）。
+- **Web UI 完成**：
+  - 创建了完整的 Streamlit Web 界面 (`ai_town/ui/streamlit_app.py`)，包含对话、检索测试、系统信息等功能。
+  - 添加了 Windows 启动脚本 (`start.bat`)，支持一键启动后端和前端服务。
+  - 界面支持数据集选择、高级参数配置、聊天历史记录、检索结果展示等。
 
 - 本地可运行的 AI 小镇（AI Town），仅用 Python，支持：
   - 本地 LLM（Ollama / HuggingFace Transformers）

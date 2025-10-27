@@ -1,13 +1,18 @@
+# Core web framework
 fastapi
 uvicorn[standard]
-streamlit
-sentence-transformers
-faiss-cpu
+
+# Database and data handling  
 sqlalchemy
 python-dotenv
+
+# HTTP client and validation
 httpx
-pytest
 pydantic
+
+# Testing and logging
+pytest
 loguru
-pdfminer.six
-pypdf
+
+# Optional: For future web UI
+# streamlit
