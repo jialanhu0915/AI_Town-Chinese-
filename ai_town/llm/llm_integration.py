@@ -1,0 +1,310 @@
+"""
+AI Town LLM 集成模块
+支持多种大语言模型后端
+"""
+
+import asyncio
+import json
+import logging
+from abc import ABC, abstractmethod
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass
+import httpx
+import os
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LLMResponse:
+    """LLM 响应数据结构"""
+    content: str
+    reasoning: Optional[str] = None
+    confidence: float = 1.0
+    metadata: Dict[str, Any] = None
+
+
+class LLMProvider(ABC):
+    """LLM 提供者抽象基类"""
+    
+    @abstractmethod
+    async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
+        """生成文本响应"""
+        pass
+    
+    @abstractmethod
+    async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
+        """对话模式"""
+        pass
+
+
+class OllamaProvider(LLMProvider):
+    """Ollama 本地 LLM 提供者"""
+    
+    def __init__(self, model_name: str = "llama2:7b-chat", base_url: str = "http://localhost:11434"):
+        self.model_name = model_name
+        self.base_url = base_url
+        self.client = httpx.AsyncClient(timeout=60.0)
+    
+    async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
+        """使用 Ollama 生成响应"""
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    "model": self.model_name,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.7,
+                        "top_p": 0.9,
+                        "max_tokens": 500
+                    }
+                }
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return LLMResponse(
+                    content=result.get("response", "").strip(),
+                    metadata={"model": self.model_name, "provider": "ollama"}
+                )
+            else:
+                logger.error(f"Ollama API error: {response.status_code}")
+                return LLMResponse(content="[LLM Error: Unable to generate response]")
+                
+        except Exception as e:
+            logger.error(f"Ollama connection error: {e}")
+            return LLMResponse(content="[LLM Error: Connection failed]")
+    
+    async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
+        """对话模式"""
+        # 将消息转换为单个 prompt
+        prompt = ""
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                prompt += f"System: {content}\n\n"
+            elif role == "user":
+                prompt += f"User: {content}\n\n"
+            elif role == "assistant":
+                prompt += f"Assistant: {content}\n\n"
+        
+        prompt += "Assistant: "
+        return await self.generate(prompt)
+
+
+class OpenAIProvider(LLMProvider):
+    """OpenAI API 提供者"""
+    
+    def __init__(self, api_key: str = None, model_name: str = "gpt-3.5-turbo"):
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.model_name = model_name
+        self.client = httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            timeout=60.0
+        )
+    
+    async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
+        """使用 OpenAI API 生成响应"""
+        messages = [{"role": "user", "content": prompt}]
+        return await self.chat(messages)
+    
+    async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
+        """对话模式"""
+        try:
+            response = await self.client.post(
+                "https://api.openai.com/v1/chat/completions",
+                json={
+                    "model": self.model_name,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "max_tokens": 500
+                }
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result["choices"][0]["message"]["content"]
+                return LLMResponse(
+                    content=content.strip(),
+                    metadata={"model": self.model_name, "provider": "openai"}
+                )
+            else:
+                logger.error(f"OpenAI API error: {response.status_code}")
+                return LLMResponse(content="[LLM Error: API request failed]")
+                
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            return LLMResponse(content="[LLM Error: Connection failed]")
+
+
+class MockLLMProvider(LLMProvider):
+    """模拟 LLM 提供者（用于测试和演示）"""
+    
+    def __init__(self):
+        self.responses = {
+            "greeting": ["你好！很高兴见到你。", "嗨！今天过得怎么样？", "欢迎来到小镇！"],
+            "work": ["我正在努力工作。", "工作很充实。", "今天的任务进展顺利。"],
+            "social": ["和朋友聊天总是很愉快。", "我喜欢认识新朋友。", "社交让生活更有趣。"],
+            "default": ["这很有趣。", "我需要仔细想想。", "让我考虑一下。"]
+        }
+    
+    async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
+        """生成模拟响应"""
+        import random
+        
+        # 简单的关键词匹配
+        prompt_lower = prompt.lower()
+        
+        if any(word in prompt_lower for word in ["你好", "hello", "嗨", "hi"]):
+            response_type = "greeting"
+        elif any(word in prompt_lower for word in ["工作", "work", "job"]):
+            response_type = "work"
+        elif any(word in prompt_lower for word in ["朋友", "friend", "社交", "social"]):
+            response_type = "social"
+        else:
+            response_type = "default"
+        
+        content = random.choice(self.responses[response_type])
+        
+        # 模拟延迟
+        await asyncio.sleep(0.1)
+        
+        return LLMResponse(
+            content=content,
+            confidence=0.8,
+            metadata={"provider": "mock", "response_type": response_type}
+        )
+    
+    async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
+        """对话模式"""
+        if messages:
+            last_message = messages[-1].get("content", "")
+            return await self.generate(last_message)
+        return await self.generate("hello")
+
+
+class LLMManager:
+    """LLM 管理器 - 管理多个 LLM 提供者"""
+    
+    def __init__(self):
+        self.providers: Dict[str, LLMProvider] = {}
+        self.default_provider = None
+        self.fallback_providers: List[str] = []
+    
+    def register_provider(self, name: str, provider: LLMProvider, is_default: bool = False):
+        """注册 LLM 提供者"""
+        self.providers[name] = provider
+        if is_default or self.default_provider is None:
+            self.default_provider = name
+    
+    def set_fallback_chain(self, provider_names: List[str]):
+        """设置故障转移链"""
+        self.fallback_providers = provider_names
+    
+    async def generate(self, prompt: str, provider_name: str = None, context: Dict[str, Any] = None) -> LLMResponse:
+        """生成响应（支持故障转移）"""
+        providers_to_try = []
+        
+        if provider_name and provider_name in self.providers:
+            providers_to_try.append(provider_name)
+        
+        if self.default_provider:
+            providers_to_try.append(self.default_provider)
+        
+        providers_to_try.extend(self.fallback_providers)
+        
+        # 去重并保持顺序
+        providers_to_try = list(dict.fromkeys(providers_to_try))
+        
+        for provider_name in providers_to_try:
+            if provider_name in self.providers:
+                try:
+                    response = await self.providers[provider_name].generate(prompt, context)
+                    if response.content and not response.content.startswith("[LLM Error"):
+                        return response
+                except Exception as e:
+                    logger.warning(f"Provider {provider_name} failed: {e}")
+                    continue
+        
+        # 所有提供者都失败了
+        return LLMResponse(content="[所有 LLM 提供者都不可用]")
+    
+    async def chat(self, messages: List[Dict[str, str]], provider_name: str = None) -> LLMResponse:
+        """对话模式（支持故障转移）"""
+        providers_to_try = []
+        
+        if provider_name and provider_name in self.providers:
+            providers_to_try.append(provider_name)
+        
+        if self.default_provider:
+            providers_to_try.append(self.default_provider)
+        
+        providers_to_try.extend(self.fallback_providers)
+        providers_to_try = list(dict.fromkeys(providers_to_try))
+        
+        for provider_name in providers_to_try:
+            if provider_name in self.providers:
+                try:
+                    response = await self.providers[provider_name].chat(messages)
+                    if response.content and not response.content.startswith("[LLM Error"):
+                        return response
+                except Exception as e:
+                    logger.warning(f"Provider {provider_name} failed: {e}")
+                    continue
+        
+        return LLMResponse(content="[所有 LLM 提供者都不可用]")
+    
+    def get_available_providers(self) -> List[str]:
+        """获取可用的提供者列表"""
+        return list(self.providers.keys())
+
+
+# 全局 LLM 管理器实例
+llm_manager = LLMManager()
+
+
+def setup_default_llm_providers():
+    """设置默认的 LLM 提供者"""
+    
+    # 注册模拟提供者（始终可用）
+    mock_provider = MockLLMProvider()
+    llm_manager.register_provider("mock", mock_provider)
+    
+    # 尝试注册 Ollama（如果可用）
+    try:
+        ollama_provider = OllamaProvider()
+        llm_manager.register_provider("ollama", ollama_provider, is_default=True)
+        logger.info("Ollama provider registered")
+    except Exception as e:
+        logger.warning(f"Failed to register Ollama provider: {e}")
+    
+    # 尝试注册 OpenAI（如果有 API key）
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            openai_provider = OpenAIProvider(openai_key)
+            llm_manager.register_provider("openai", openai_provider, is_default=True)
+            logger.info("OpenAI provider registered")
+        except Exception as e:
+            logger.warning(f"Failed to register OpenAI provider: {e}")
+    
+    # 设置故障转移链
+    llm_manager.set_fallback_chain(["ollama", "openai", "mock"])
+    
+    logger.info(f"Available LLM providers: {llm_manager.get_available_providers()}")
+
+
+# 便捷函数
+async def ask_llm(prompt: str, provider: str = None, context: Dict[str, Any] = None) -> str:
+    """便捷的 LLM 查询函数"""
+    response = await llm_manager.generate(prompt, provider, context)
+    return response.content
+
+
+async def chat_with_llm(messages: List[Dict[str, str]], provider: str = None) -> str:
+    """便捷的 LLM 对话函数"""
+    response = await llm_manager.chat(messages, provider)
+    return response.content

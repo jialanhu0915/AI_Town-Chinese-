@@ -1,16 +1,17 @@
 """
-Alice - 示例智能体角色
-一个友好的咖啡店老板
+Alice - LLM 增强的智能体角色
+一个友好的咖啡店老板，使用大语言模型驱动行为和对话
 """
 
-from ai_town.agents.base_agent import BaseAgent, Position
+from ai_town.agents.llm_enhanced_agent import LLMEnhancedAgent
+from ai_town.agents.base_agent import Position
 from ai_town.core.time_manager import GameTime
 from typing import List, Dict, Any
 import asyncio
 import random
 
 
-class Alice(BaseAgent):
+class Alice(LLMEnhancedAgent):
     """
     Alice - 咖啡店老板
     
@@ -46,7 +47,8 @@ class Alice(BaseAgent):
             background=background,
             initial_position=Position(25, 25, "coffee_shop"),
             occupation="coffee_shop_owner",
-            work_area="coffee_shop"
+            work_area="coffee_shop",
+            llm_provider="mock"  # 可配置为 'ollama', 'openai', 'anthropic' 等
         )
         
         # Alice 特定的属性
@@ -254,3 +256,134 @@ class Alice(BaseAgent):
                     {'type': 'think', 'description': '回想今天与顾客的有趣对话'}
                 ]
                 return random.choice(night_activities)
+    
+    async def _fallback_decide_action(self) -> Dict[str, Any]:
+        """Alice 的智能回退决策逻辑"""
+        return await self._decide_next_action()
+    
+    def _fallback_conversation_response(self, speaker_name: str, message: str) -> str:
+        """Alice 特有的对话回应风格"""
+        message_lower = message.lower()
+        
+        # 咖啡相关话题
+        if any(word in message_lower for word in ['coffee', 'drink', 'latte', 'espresso', 'brew']):
+            responses = [
+                "哦，你也是咖啡爱好者！我很乐意为你推荐一些特别的饮品。",
+                "咖啡对我来说不只是饮品，更像是艺术品。每一杯都有自己的故事。",
+                "你有什么特别喜欢的咖啡口味吗？我一直在尝试新的配方。",
+                "一杯好咖啡真的能让整天都变得美好，不是吗？"
+            ]
+        
+        # 工作相关话题
+        elif any(word in message_lower for word in ['work', 'job', 'busy', 'shop', 'business']):
+            responses = [
+                "经营咖啡店虽然忙碌，但看到顾客因为我的咖啡而微笑，一切都值得了。",
+                "这个小镇的人们真的很棒，每天都有新的故事和有趣的对话。",
+                "我喜欢我的工作，因为它让我能够为社区带来一些温暖。",
+                "忙碌的日子让时间过得特别快，但我享受每一刻。"
+            ]
+        
+        # 天气相关
+        elif any(word in message_lower for word in ['weather', 'sunny', 'rain', 'cold', 'warm']):
+            responses = [
+                "是啊，这样的天气很适合坐在店里慢慢品味一杯热咖啡呢。",
+                "不管天气如何，总有一款咖啡适合当下的心情。",
+                "我喜欢观察不同天气下，人们对咖啡的选择也会不同。",
+                "天气变化时，咖啡就成了最好的陪伴。"
+            ]
+        
+        # 问候和关心
+        elif any(word in message_lower for word in ['how', 'doing', 'good', 'great', 'fine']):
+            responses = [
+                f"谢谢你的关心，{speaker_name}！我过得很不错，店里的生意也很好。",
+                "每天都充满新的可能性，我很享受这种感觉！你呢？",
+                "生活很美好，特别是能在这里遇见像你这样的好朋友。",
+                "我一直都很好，因为做着自己喜欢的事情。最近你怎么样？"
+            ]
+        
+        # 通用友好回应
+        else:
+            responses = [
+                f"这很有趣，{speaker_name}！请告诉我更多。",
+                "我很喜欢听你分享这些，继续说吧！",
+                "你总是有这么有趣的想法，我很欣赏。",
+                "这让我想起了一些相似的经历...",
+                "谢谢你和我分享这个，真的很棒！"
+            ]
+        
+        import random
+        return random.choice(responses)
+
+    async def decide_next_action(self) -> Dict[str, Any]:
+        """Alice 的主要决策方法"""
+        if self.use_llm_for_planning:
+            try:
+                from ai_town.core.time_manager import GameTime
+                context = {
+                    'current_time': GameTime.format_time(),
+                    'position': self.position.__dict__,
+                    'recent_memories': [m.description for m in self.memory.get_recent_memories(3)]
+                }
+                return await self._llm_decide_action(context)
+            except Exception as e:
+                print(f"Alice: LLM 决策失败，使用后备决策: {e}")
+        
+        # 后备决策逻辑
+        return await self._decide_next_action()
+    
+    async def start_conversation(self, other_agent_name: str, topic: str = "") -> str:
+        """Alice 开始对话"""
+        if self.use_llm_for_conversation:
+            try:
+                return await self._llm_start_conversation(other_agent_name, topic)
+            except Exception as e:
+                print(f"Alice: LLM 对话失败，使用后备对话: {e}")
+        
+        # 后备对话
+        import random
+        greetings = [
+            f"你好，{other_agent_name}！欢迎来我的咖啡店！",
+            f"嗨 {other_agent_name}！今天想喝点什么吗？",
+            f"{other_agent_name}，很高兴见到你！我刚泡了新鲜的咖啡。",
+            f"欢迎，{other_agent_name}！坐下来聊聊天吧！"
+        ]
+        return random.choice(greetings)
+    
+    async def respond_to_conversation(self, other_agent_name: str, message: str) -> str:
+        """Alice 回应对话"""
+        if self.use_llm_for_conversation:
+            try:
+                return await self._llm_respond_to_conversation(other_agent_name, message)
+            except Exception as e:
+                print(f"Alice: LLM 回应失败，使用后备回应: {e}")
+        
+        # 后备回应逻辑
+        import random
+        
+        if "咖啡" in message or "coffee" in message.lower():
+            responses = [
+                "我们有最好的咖啡豆！你想试试今天的特调吗？",
+                "咖啡是我的专长！让我为你推荐一款。",
+                "刚烘焙的豆子特别香，你一定会喜欢的。"
+            ]
+        elif "店" in message or "shop" in message.lower():
+            responses = [
+                "这家店是我的心血，我希望每个人都能感到舒适。",
+                "我努力让这里成为大家聚会聊天的好地方。",
+                "你觉得店里的氛围怎么样？"
+            ]
+        elif "朋友" in message or "friend" in message.lower():
+            responses = [
+                "我很享受和不同的人聊天，每个人都有有趣的故事。",
+                "这里的常客都是我的好朋友！",
+                "我希望能认识更多像你这样的朋友。"
+            ]
+        else:
+            responses = [
+                "真的吗？告诉我更多！",
+                "这听起来很有趣！",
+                "我喜欢听你这么说。",
+                "让我们继续聊下去！"
+            ]
+        
+        return random.choice(responses)
