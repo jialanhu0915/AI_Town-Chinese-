@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 小镇 - 实时可视化</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 2rem;
+            font-weight: 300;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .btn.active {
+            background: #4CAF50;
+        }
+        
+        .main-container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: white;
+            margin: 1rem;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .sidebar {
+            width: 350px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem;
+            overflow-y: auto;
+            border-radius: 15px 0 0 15px;
+        }
+        
+        .info-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .info-panel h3 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .agent-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .agent-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .agent-card:hover {
+            transform: translateX(5px);
+        }
+        
+        .agent-card.selected {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .agent-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .agent-status {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-top: 0.2rem;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-active { background: #4CAF50; }
+        .status-idle { background: #FFC107; }
+        .status-busy { background: #FF5722; }
+        
+        .time-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .events-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .event-item {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background: #f8f9fa;
+            border-left: 3px solid #667eea;
+            border-radius: 0 5px 5px 0;
+            font-size: 0.9rem;
+        }
+        
+        .event-time {
+            color: #666;
+            font-size: 0.8rem;
+        }
+        
+        .connection-status {
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .loading {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏘️ AI 小镇实时监控</h1>
+        <div class="controls">
+            <div id="connectionStatus" class="connection-status disconnected">● 未连接</div>
+            <button id="startBtn" class="btn">▶️ 开始模拟</button>
+            <button id="pauseBtn" class="btn">⏸️ 暂停</button>
+            <button id="resetBtn" class="btn">🔄 重置</button>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="map-container">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+        </div>
+        
+        <div class="sidebar">
+            <!-- 时间信息 -->
+            <div class="info-panel">
+                <h3>⏰ 时间信息</h3>
+                <div id="gameTime" class="time-display">加载中...</div>
+                <div id="timeOfDay" style="color: #666; margin-top: 0.5rem;">-</div>
+            </div>
+            
+            <!-- 统计信息 -->
+            <div class="info-panel">
+                <h3>📊 统计数据</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div id="stepCount" class="stat-number">0</div>
+                        <div class="stat-label">步数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="agentCount" class="stat-number">0</div>
+                        <div class="stat-label">智能体</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="interactionCount" class="stat-number">0</div>
+                        <div class="stat-label">互动</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="movementCount" class="stat-number">0</div>
+                        <div class="stat-label">移动</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 智能体列表 -->
+            <div class="info-panel">
+                <h3>🤖 智能体</h3>
+                <div id="agentList" class="agent-list">
+                    <div class="loading">正在加载智能体信息...</div>
+                </div>
+            </div>
+            
+            <!-- 最近事件 -->
+            <div class="info-panel">
+                <h3>📰 最近事件</h3>
+                <div id="eventsList" class="events-list">
+                    <div class="loading">等待事件数据...</div>
+                </div>
+            </div>
+            
+            <!-- 图例 -->
+            <div class="info-panel">
+                <h3>🗺️ 图例</h3>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4CAF50;"></div>
+                        <span>咖啡店</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #2196F3;"></div>
+                        <span>书店</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FF9800;"></div>
+                        <span>办公室</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #E91E63;"></div>
+                        <span>住宅</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="visualization.js"></script>
+</body>
+</html>

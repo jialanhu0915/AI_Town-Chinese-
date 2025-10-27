@@ -14,130 +14,7 @@ sys.path.append(str(project_root))
 
 from ai_town.core.world import World
 from ai_town.core.time_manager import GameTime
-from ai_town.agents.characters.alice import Alice
-from ai_town.agents.base_agent import Position
-
-
-def create_bob():
-    """创建 Bob 角色 - 书店老板"""
-    from ai_town.agents.base_agent import BaseAgent
-    
-    class Bob(BaseAgent):
-        def __init__(self):
-            personality = {
-                'extraversion': 0.4,      # 较内向
-                'agreeableness': 0.8,     # 友善
-                'conscientiousness': 0.9, # 认真负责
-                'neuroticism': 0.3,       # 稳定
-                'openness': 0.8          # 开放
-            }
-            
-            background = (
-                "Bob 是一位安静而深思的书店老板，今年47岁。"
-                "他经营当地书店已有15年多，对书籍和文学了如指掌。"
-                "Bob 喜欢关于哲学、历史和科学的深度对话。"
-                "他有点内向，但知识渊博，乐于帮助顾客。"
-            )
-            
-            super().__init__(
-                agent_id="bob",
-                name="Bob",
-                age=47,
-                personality=personality,
-                background=background,
-                initial_position=Position(35, 20, "bookstore"),
-                occupation="bookstore_owner",
-                work_area="bookstore"
-            )
-        
-        async def _generate_insights(self, memories):
-            insights = []
-            
-            # 分析读书相关的记忆
-            book_memories = [m for m in memories 
-                           if any(word in m.description.lower() 
-                                 for word in ['book', 'read', 'story', 'novel'])]
-            
-            if len(book_memories) >= 3:
-                insights.append(
-                    "I've been thinking about the books that customers are interested in lately. "
-                    "There seems to be a growing interest in science fiction."
-                )
-            
-            # 分析客户互动
-            customer_memories = [m for m in memories 
-                               if 'customer' in m.description.lower()]
-            
-            if len(customer_memories) >= 2:
-                insights.append(
-                    "The bookstore is becoming more than just a place to buy books. "
-                    "People come here to discuss ideas and find intellectual connection."
-                )
-            
-            return insights[:2]
-    
-    return Bob()
-
-
-def create_charlie():
-    """创建 Charlie 角色 - 办公室职员"""
-    from ai_town.agents.base_agent import BaseAgent
-    
-    class Charlie(BaseAgent):
-        def __init__(self):
-            personality = {
-                'extraversion': 0.6,      # 适度外向
-                'agreeableness': 0.7,     # 友善
-                'conscientiousness': 0.8, # 负责任
-                'neuroticism': 0.4,       # 略有压力
-                'openness': 0.5          # 中等开放性
-            }
-            
-            background = (
-                "Charlie 是一位28岁的上班族，最近因为新工作搬到了镇上。"
-                "他还在逐渐认识新朋友，探索这个社区。"
-                "Charlie 工作勤奋且有抱负，但也重视工作与生活的平衡。"
-                "他喜欢结识新朋友，探索这个小镇的魅力。"
-            )
-            
-            super().__init__(
-                agent_id="charlie",
-                name="Charlie",
-                age=28,
-                personality=personality,
-                background=background,
-                initial_position=Position(60, 30, "office_1"),
-                occupation="office_worker",
-                work_area="office_1"
-            )
-        
-        async def _generate_insights(self, memories):
-            insights = []
-            
-            # 分析工作记忆
-            work_memories = [m for m in memories 
-                           if 'work' in m.description.lower() or 'office' in m.description.lower()]
-            
-            if len(work_memories) >= 3:
-                insights.append(
-                    "I'm starting to get into a good routine at work. "
-                    "The office environment here is quite different from my previous job."
-                )
-            
-            # 分析新环境适应
-            social_memories = [m for m in memories 
-                             if any(word in m.description.lower() 
-                                   for word in ['meet', 'talk', 'conversation'])]
-            
-            if len(social_memories) >= 2:
-                insights.append(
-                    "I'm gradually getting to know more people in town. "
-                    "Everyone seems quite friendly and welcoming."
-                )
-            
-            return insights[:2]
-    
-    return Charlie()
+from ai_town.agents.agent_manager import agent_manager
 
 
 async def main():
@@ -157,14 +34,12 @@ async def main():
     # 创建智能体
     print("\n👥 正在创建智能体...")
     
-    alice = Alice()
-    bob = create_bob()
-    charlie = create_charlie()
+    # 使用智能体管理器创建默认智能体
+    created_agents = agent_manager.create_default_agents()
     
     # 添加智能体到世界
-    world.add_agent(alice)
-    world.add_agent(bob) 
-    world.add_agent(charlie)
+    for agent in created_agents:
+        world.add_agent(agent)
     
     print(f"✅ 已添加 {len(world.agents)} 个智能体:")
     for agent_id, agent in world.agents.items():

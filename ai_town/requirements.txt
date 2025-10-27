@@ -1,6 +1,7 @@
 # Core web framework
 fastapi
 uvicorn[standard]
+websockets
 
 # Database and data handling  
 sqlalchemy
@@ -14,5 +15,6 @@ pydantic
 pytest
 loguru
 
-# Optional: For future web UI
-# streamlit
+# Web UI dependencies
+jinja2
+python-multipart

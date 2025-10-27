@@ -39,9 +39,9 @@ REM 启动选项菜单
 :menu
 echo.
 echo 请选择启动选项:
-echo 1. 运行 AI Town 模拟 (交互式)
+echo 1. 运行 AI Town 模拟 (命令行版)
 echo 2. 运行 AI Town 模拟 (指定时长)
-echo 3. 启动 FastAPI 服务器
+echo 3. 启动可视化界面 (推荐!)
 echo 4. 测试基本功能
 echo 5. 查看项目信息
 echo 6. 退出
@@ -50,10 +50,22 @@ set /p choice=请输入选项 (1-6):
 
 if "%choice%"=="1" goto run_interactive
 if "%choice%"=="2" goto run_timed
-if "%choice%"=="3" goto start_api
+if "%choice%"=="3" goto start_visualization_direct
 if "%choice%"=="4" goto test_basic
 if "%choice%"=="5" goto show_info
 if "%choice%"=="6" goto exit
+
+:start_visualization_direct
+echo.
+echo 🎨 启动 AI 小镇可视化界面...
+echo 🌐 浏览器访问地址: http://localhost:8000
+echo 📱 可视化控制面板已启动
+echo ⏹️  按 Ctrl+C 停止服务
+echo.
+echo 启动后请在浏览器中打开: http://localhost:8000
+echo.
+python ai_town\ui\visualization_server.py
+goto menu
 echo 无效选项，请重新选择
 goto menu
 
@@ -99,8 +111,30 @@ goto menu
 
 :start_api
 echo.
-echo 启动 FastAPI 服务器...
+echo 请选择启动模式:
+echo 1. 启动可视化界面 (推荐)
+echo 2. 启动 API 服务器
+echo.
+set /p api_choice=请选择 (1-2): 
+
+if "%api_choice%"=="1" goto start_visualization
+if "%api_choice%"=="2" goto start_basic_api
+
+:start_visualization
+echo.
+echo 🎨 启动 AI 小镇可视化界面...
+echo 🌐 浏览器访问地址: http://localhost:8000
+echo 📱 可视化控制面板已启动
+echo ⏹️  按 Ctrl+C 停止服务
+echo.
+python ai_town\ui\visualization_server.py
+goto menu
+
+:start_basic_api
+echo.
+echo 启动基础 API 服务器...
 echo 服务地址: http://localhost:8000
+echo API 文档: http://localhost:8000/docs
 echo 按 Ctrl+C 停止服务
 echo.
 python -m uvicorn ai_town.api.main:app --reload --host 0.0.0.0 --port 8000
