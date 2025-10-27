@@ -70,6 +70,8 @@ class BaseAgent(ABC):
         personality: Dict[str, Any],
         background: str,
         initial_position: Position,
+        occupation: str = "resident",
+        work_area: str = None,
         **kwargs
     ):
         self.agent_id = agent_id
@@ -77,6 +79,8 @@ class BaseAgent(ABC):
         self.age = age
         self.personality = personality
         self.background = background
+        self.occupation = occupation
+        self.work_area = work_area
         
         # 状态管理
         self.state = AgentState.IDLE
@@ -405,6 +409,9 @@ class BaseAgent(ABC):
         return {
             'agent_id': self.agent_id,
             'name': self.name,
+            'age': self.age,
+            'occupation': self.occupation,
+            'work_area': self.work_area,
             'position': {
                 'x': self.position.x,
                 'y': self.position.y, 

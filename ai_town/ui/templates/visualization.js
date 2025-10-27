@@ -97,6 +97,14 @@ class AITownVisualizer {
         switch (data.type) {
             case 'world_state':
                 this.worldState = data.data;
+                console.log('Received world state:', this.worldState);
+                
+                // 调试建筑物数据
+                if (this.worldState.map_data && this.worldState.map_data.buildings) {
+                    console.log('Buildings data type:', typeof this.worldState.map_data.buildings);
+                    console.log('Buildings data:', this.worldState.map_data.buildings);
+                }
+                
                 this.updateUI();
                 this.redraw();
                 break;
@@ -381,7 +389,12 @@ class AITownVisualizer {
             return;
         }
         
-        this.worldState.map_data.buildings.forEach(building => {
+        // 确保 buildings 是数组
+        const buildings = Array.isArray(this.worldState.map_data.buildings) 
+            ? this.worldState.map_data.buildings 
+            : Object.values(this.worldState.map_data.buildings);
+        
+        buildings.forEach(building => {
             const color = this.colors.buildings[building.id] || '#888888';
             
             this.ctx.fillStyle = color;

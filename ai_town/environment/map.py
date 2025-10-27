@@ -320,8 +320,8 @@ class GameMap:
         return {
             'width': self.width,
             'height': self.height,
-            'buildings': {
-                building_id: {
+            'buildings': [
+                {
                     'id': building.id,
                     'name': building.name,
                     'type': building.building_type,
@@ -332,7 +332,7 @@ class GameMap:
                     'occupants': building.current_occupants
                 }
                 for building_id, building in self.buildings.items()
-            },
+            ],
             'areas': self.areas
         }
     
