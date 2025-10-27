@@ -17,7 +17,7 @@ import json
 from pathlib import Path
 import numpy as np
 
-from ai_town.retrieval.storage import load_manifest
+from ai_town.retrieval.storage import load_manifest, get_index_path
 from ai_town.retrieval.faiss_utils import load_faiss_index, search_index
 from ai_town.retrieval.embedder import Embedder
 from ai_town.config import DATA_DIR
@@ -61,18 +61,13 @@ def main():
         print(f'Dataset {dataset} not found in manifest')
         return
 
-    # 兼容旧 manifest 的 'index' 字段，以及新的 'index_safe' / 'index_original'
-    index_file = entry.get('index_safe') or entry.get('index') or entry.get('index_original')
-    vectors_file = entry.get('vectors')
-    meta = entry.get('meta', [])
-
-    if not index_file:
-        print(f'No Faiss index recorded for dataset {dataset}. Expected vectors at {vectors_file}.')
-        return
-
-    index_path = DATA_DIR / index_file
-    if not index_path.exists():
-        print(f'Index file not found: {index_path}')
+    # 使用统一的索引路径访问 API
+    try:
+        index_path = get_index_path(dataset)
+        vectors_file = entry.get('vectors')
+        meta = entry.get('meta', [])
+    except ValueError as e:
+        print(f'Error accessing dataset {dataset}: {e}')
         return
 
     print(f'Loading Faiss index from {index_path} ...')

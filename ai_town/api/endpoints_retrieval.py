@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 
-from ai_town.retrieval.storage import load_manifest
+from ai_town.retrieval.storage import load_manifest, get_index_path
 from ai_town.retrieval.faiss_utils import load_faiss_index, search_index
 from ai_town.retrieval.embedder import Embedder
 from ai_town.config import DATA_DIR, DEFAULT_EMBED_METHOD, EMBED_MODEL_PATH
@@ -48,15 +48,12 @@ def retrieve(req: RetrieveRequest):
     if not entry:
         raise HTTPException(status_code=404, detail=f'Dataset {dataset} not found')
 
-    # 兼容旧 manifest 的 'index' 字段，以及新的 'index_safe' / 'index_original'
-    index_file = entry.get('index_safe') or entry.get('index') or entry.get('index_original')
-    meta = entry.get('meta', [])
-    if not index_file:
-        raise HTTPException(status_code=400, detail=f'Dataset {dataset} has no index')
-
-    index_path = DATA_DIR / index_file
-    if not index_path.exists():
-        raise HTTPException(status_code=404, detail=f'Index file not found: {index_path}')
+    # 使用统一的索引路径访问 API
+    try:
+        index_path = get_index_path(dataset)
+        meta = entry.get('meta', [])
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     index = load_faiss_index(str(index_path))
 

@@ -10,7 +10,7 @@ for p in [DATA_DIR, LOG_DIR]:
 
 # ==== 可编辑的默认配置（把你的模型路径写在这里，或通过环境变量覆盖） ====
 # 示例：将你的本地 embedding 模型路径和生成模型路径填写到下方，便于脚本默认使用。
-EMBED_MODEL_PATH = os.environ.get('AI_TOWN_EMBED_MODEL', r'B:\OllamaModels\LLM_models')
+EMBED_MODEL_PATH = os.environ.get('AI_TOWN_EMBED_MODEL', r'B:\OllamaModels\text2vec-base-chinese')
 GEN_MODEL_PATH = os.environ.get('AI_TOWN_GEN_MODEL', r'B:\OllamaModels\flan-t5-small')
 
 # 默认嵌入后端：'hf' | 'ollama' | 'auto'

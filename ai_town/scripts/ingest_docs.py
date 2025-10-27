@@ -20,6 +20,32 @@ def ingest(path: str, chunk_size: int = 200, overlap: int = 50, embed_model: str
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(path)
+    
+    # 如果是目录，处理目录中的所有支持文件
+    if p.is_dir():
+        logger.info(f"Processing directory: {p}")
+        supported_extensions = ['.pdf', '.txt', '.md']
+        files_to_process = []
+        
+        for ext in supported_extensions:
+            files_to_process.extend(p.glob(f'*{ext}'))
+            files_to_process.extend(p.glob(f'**/*{ext}'))  # 递归搜索
+        
+        if not files_to_process:
+            logger.warning(f"No supported files found in directory: {p}")
+            logger.info(f"Supported extensions: {supported_extensions}")
+            return
+        
+        logger.info(f"Found {len(files_to_process)} files to process")
+        for file_path in files_to_process:
+            logger.info(f"Processing: {file_path}")
+            try:
+                ingest(str(file_path), chunk_size, overlap, embed_model, build_index, embed_method)
+            except Exception as e:
+                logger.error(f"Failed to process {file_path}: {e}")
+        return
+    
+    # 处理单个文件
     logger.info(f"Ingesting {p} (chunk_size={chunk_size}, overlap={overlap}, embed_model={embed_model}, build_index={build_index}, embed_method={embed_method})")
     if p.suffix.lower() == '.pdf':
         text = extract_text_from_pdf(str(p))

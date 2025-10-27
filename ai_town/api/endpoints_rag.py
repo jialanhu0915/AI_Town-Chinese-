@@ -4,7 +4,7 @@ from typing import Optional
 from pathlib import Path
 import os
 
-from ai_town.retrieval.storage import load_manifest
+from ai_town.retrieval.storage import load_manifest, get_index_path
 from ai_town.retrieval.faiss_utils import load_faiss_index, search_index
 from ai_town.retrieval.embedder import Embedder
 from ai_town.config import DATA_DIR, DEFAULT_EMBED_METHOD, EMBED_MODEL_PATH, DEFAULT_GEN_MODEL, DEFAULT_ENABLE_OLLAMA, AI_TOWN_ALLOW_ONLINE_GEN
@@ -28,31 +28,153 @@ class RAGResponse(BaseModel):
 
 
 def _dedupe_evidence(evidence, max_chars=2000):
+    """去重证据并限制总字符长度"""
     seen_texts = set()
-    out = []
-    total = 0
+    deduped = []
+    total_chars = 0
+    
     for e in evidence:
-        txt = e.get('text', '').strip()
-        if not txt:
-            continue
-        if txt in seen_texts:
-            continue
-        seen_texts.add(txt)
-        # respect max total chars to keep prompt size reasonable
-        if total + len(txt) > max_chars:
-            break
-        out.append(e)
-        total += len(txt)
-    return out
+        text = e['text'][:400]  # 每个证据最多400字符
+        text_hash = hash(text)
+        if text_hash not in seen_texts and total_chars + len(text) <= max_chars:
+            seen_texts.add(text_hash)
+            deduped.append(e)
+            total_chars += len(text)
+    
+    return deduped
+
+
+def _build_optimized_prompt(query: str, evidence: list, gen_model: str) -> str:
+    """
+    根据生成模型类型构建优化的 prompt
+    
+    Args:
+        query: 用户查询
+        evidence: 检索到的证据列表
+        gen_model: 生成模型名称或路径
+    
+    Returns:
+        str: 优化的 prompt 字符串
+    """
+    low_name = str(gen_model).lower()
+    is_flan_t5 = any(x in low_name for x in ('flan-t5', 'flan_t5'))
+    is_t5 = 't5' in low_name
+    is_seq2seq = any(x in low_name for x in ('t5', 'flan', 'bart', 'pegasus'))
+    
+    # 简化证据文本
+    evidence_texts = []
+    for i, e in enumerate(evidence[:3], 1):  # 只使用前3个证据
+        text = e['text'].strip()
+        # 清理数学公式和特殊符号
+        text = _clean_evidence_text(text)
+        if len(text) > 50:  # 过滤太短的片段
+            evidence_texts.append(text[:300])  # 每个证据最多300字符
+    
+    if not evidence_texts:
+        return f"请回答问题：{query}"
+    
+    if is_flan_t5:
+        # FLAN-T5 专门优化的 prompt 格式 - 更简洁直接
+        evidence_str = " ".join(evidence_texts)[:600]  # 进一步限制长度
+        # 移除所有数学符号
+        evidence_str = _clean_generated_text(evidence_str)
+        
+        # 使用更简单的 prompt 格式
+        prompt = f"根据材料回答：{query}\n材料：{evidence_str}\n答案："
+        
+    elif is_t5:
+        # 普通 T5 的简化格式
+        evidence_str = " ".join(evidence_texts)[:600]
+        prompt = f"材料：{evidence_str}\n问题：{query}\n答案："
+        
+    elif is_seq2seq:
+        # 其他 seq2seq 模型
+        evidence_str = "\n".join([f"- {text[:200]}" for text in evidence_texts])
+        prompt = f"""基于以下信息回答问题：
+
+{evidence_str}
+
+问题：{query}
+答案："""
+        
+    else:
+        # 自回归模型（GPT 类）的格式
+        evidence_str = "\n".join([f"[{i}] {text[:250]}" for i, text in enumerate(evidence_texts, 1)])
+        prompt = f"""你是一个基于提供材料回答问题的助理。请根据以下材料简洁地回答问题。
+
+材料：
+{evidence_str}
+
+问题：{query}
+
+请用1-3句话回答："""
+    
+    return prompt
+
+
+def _clean_evidence_text(text: str) -> str:
+    """
+    清理证据文本，移除数学公式和不完整的符号，保留中文描述
+    
+    Args:
+        text: 原始文本
+        
+    Returns:
+        str: 清理后的文本
+    """
+    import re
+    
+    # 移除单独的数学符号和公式片段
+    text = re.sub(r'[𝜶𝒊𝒎𝝎𝒙𝒃𝒚𝑱𝝏෍𝒂𝒌𝒏𝒇]+', ' ', text)
+    text = re.sub(r'[αβγδεζηθικλμνξοπρστυφχψωΩ]+', ' ', text)
+    
+    # 移除数学表达式
+    text = re.sub(r'[𝑓𝑧𝑥𝑦𝑤𝑏]+\s*[=+\-*/]\s*[𝑓𝑧𝑥𝑦𝑤𝑏]+', ' ', text)
+    text = re.sub(r'\b[a-zA-Z]\d*\s*[=+\-*/]\s*[a-zA-Z]\d*\b', ' ', text)
+    text = re.sub(r'[=+\-*/]{2,}', ' ', text)
+    
+    # 移除单独的符号和数学结构
+    text = re.sub(r'[{}()[\]]+', ' ', text)
+    text = re.sub(r'[•·▪▫■□●○]+', ' ', text)
+    text = re.sub(r'Σ\|𝑓', ' ', text)
+    text = re.sub(r'෍\s*𝒊=𝟏', ' ', text)
+    
+    # 移除纯数字行
+    lines = text.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        line = line.strip()
+        # 保留包含中文的行，或包含完整英文单词的行
+        if any('\u4e00' <= char <= '\u9fff' for char in line) or \
+           (len([w for w in line.split() if w.isalpha() and len(w) > 2]) > 0):
+            # 进一步清理该行的数学符号
+            line = re.sub(r'[𝜶𝒊𝒎𝝎𝒙𝒃𝒚𝑱𝝏෍𝒂𝒌𝒏𝒟𝒇]+', ' ', line)
+            if len(line.strip()) > 10:  # 只保留有意义长度的行
+                cleaned_lines.append(line.strip())
+    
+    text = ' '.join(cleaned_lines)
+    
+    # 清理多余空格
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
 
 
 def _postprocess_generated_text(generated: str, prompt: str) -> str:
-    """尝试从生成文本中剥离原始 prompt 并返回首个合理答复段落。"""
+    """
+    优化后的生成文本后处理函数，专门处理 FLAN-T5 等模型的输出
+    """
+    import re
+    
     if not generated:
-        return generated
+        return "无法生成答案"
     
     # 清理生成文本
     generated = generated.strip()
+    
+    # 清理数学符号和不完整的公式
+    generated = _clean_generated_text(generated)
     
     # 对于 text2text-generation 模型（如 T5），通常不会包含 prompt
     # 但可能包含一些格式标记或重复内容
@@ -62,22 +184,169 @@ def _postprocess_generated_text(generated: str, prompt: str) -> str:
         generated = generated.split(prompt, 1)[-1].strip()
     
     # 删除常见的开头标记
-    prefixes_to_remove = ["答案:", "回答:", "Answer:", "Response:", "答:", "A:"]
+    prefixes_to_remove = [
+        "答案:", "回答:", "Answer:", "Response:", "答:", "A:", 
+        "根据材料", "根据以上", "基于材料", "材料显示", "文中提到"
+    ]
     for prefix in prefixes_to_remove:
         if generated.startswith(prefix):
             generated = generated[len(prefix):].strip()
+            # 删除可能的冒号或逗号
+            if generated.startswith((':', '：', '，', ',')):
+                generated = generated[1:].strip()
     
-    # 分为段落，返回第一个有意义的段落
-    parts = [p.strip() for p in generated.split('\n') if p.strip() and not p.strip().startswith(('问题', 'Question', '证据', 'Evidence'))]
-    if parts:
-        # 选择第一个非空且有意义的段落
-        first_meaningful = parts[0]
-        # 如果第一段过短且有第二段，考虑合并
-        if len(first_meaningful) < 20 and len(parts) > 1:
-            return f"{first_meaningful} {parts[1]}"
-        return first_meaningful
+    # 删除重复的问题
+    if "问题" in generated or "Question" in generated:
+        parts = generated.split('\n')
+        cleaned_parts = []
+        for part in parts:
+            if not any(marker in part.lower() for marker in ['问题', 'question', '证据', 'evidence']):
+                cleaned_parts.append(part.strip())
+        if cleaned_parts:
+            generated = ' '.join(cleaned_parts)
     
-    return generated if generated else "无法生成答案"
+    # 分为句子，处理不完整的句子
+    sentences = re.split(r'[.。!！?？;；]', generated)
+    meaningful_sentences = []
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if len(sentence) > 5 and not _is_incomplete_formula(sentence):
+            meaningful_sentences.append(sentence)
+    
+    if meaningful_sentences:
+        # 取前1-2个完整的句子
+        result = '。'.join(meaningful_sentences[:2])
+        if not result.endswith(('。', '.', '！', '!', '？', '?')):
+            result += '。'
+        return result
+    
+    # 如果没有找到完整句子，返回清理后的原文（如果足够长）
+    if len(generated) > 10:
+        # 确保以标点结尾
+        if not generated.endswith(('。', '.', '！', '!', '？', '?')):
+            generated += '。'
+        return generated
+    
+    return "无法根据提供的材料生成答案。"
+
+
+def _clean_generated_text(text: str) -> str:
+    """
+    激进清理生成文本中的数学符号和不完整片段
+    """
+    import re
+    
+    # 移除所有数学符号
+    text = re.sub(r'[𝜶𝒊𝒎𝝎𝒙𝒃𝒚𝑱𝝏෍𝒂𝒌𝒏𝒟𝒇𝒌𝒎𝒏]+', '', text)
+    text = re.sub(r'[αβγδεζηθικλμνξοπρστυφχψωΩ]+', '', text)
+    
+    # 移除数学表达式和公式
+    text = re.sub(r'wmnk|wmn|𝑤𝑚𝑛|𝑏𝑚𝑛', '', text)
+    text = re.sub(r'\b[a-zA-Z]\d*\s*[=+\-*/]\s*[a-zA-Z]\d*\b', '', text)
+    text = re.sub(r'[=+\-*/]{2,}', '', text)
+    text = re.sub(r'[=:+\-*/,，。：]{3,}', '', text)
+    
+    # 移除单独的字母和数字组合（如 k, m, n）
+    text = re.sub(r'\b[a-zA-Z]\s*[,，]\s*[a-zA-Z]\s*[,，]\s*[a-zA-Z]\b', '', text)
+    text = re.sub(r'\b[kmn]\s*[,，:：]', '', text)
+    
+    # 移除大括号、括号和其他符号
+    text = re.sub(r'[{}()[\]]+', ' ', text)
+    text = re.sub(r'[•·▪▫■□●○]+', ' ', text)
+    text = re.sub(r'Σ\|𝑓|෍', ' ', text)
+    
+    # 移除纯符号行
+    text = re.sub(r'^[^a-zA-Z\u4e00-\u9fff]*$', '', text, flags=re.MULTILINE)
+    
+    # 清理多余空格和标点
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[,，。：:]{2,}', '。', text)
+    
+    return text.strip()
+
+
+def _is_incomplete_formula(text: str) -> bool:
+    """
+    判断文本是否是不完整的数学公式
+    """
+    # 如果包含大量数学符号，可能是公式
+    math_chars = len([c for c in text if c in '+-*/=()[]{}αβγδεωπσμλτφθψ𝜶𝒊𝒎𝝎𝒙𝒃𝒚'])
+    total_chars = len(text)
+    
+    if total_chars > 0 and math_chars / total_chars > 0.3:
+        return True
+    
+    # 如果主要是单个字母和数字
+    if len(text.split()) < 3 and any(c.isalpha() for c in text) and any(c.isdigit() for c in text):
+        return True
+    
+    return False
+
+
+def _extract_key_info_from_evidence(query: str, evidence: list) -> str:
+    """
+    当生成模型失败时，从证据中提取关键信息作为 fallback 答案
+    
+    Args:
+        query: 用户查询
+        evidence: 证据列表
+        
+    Returns:
+        str: 提取的关键信息
+    """
+    if not evidence:
+        return "抱歉，没有找到相关信息。"
+    
+    # 根据查询类型提取不同的关键信息
+    query_lower = query.lower()
+    
+    key_sentences = []
+    for e in evidence[:2]:  # 只看前两个最相关的证据
+        text = e['text']
+        text = _clean_evidence_text(text)  # 清理数学符号
+        
+        # 按句子分割
+        import re
+        sentences = re.split(r'[。！？.!?]', text)
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) < 10:  # 跳过太短的句子
+                continue
+                
+            # 根据查询关键词匹配相关句子
+            if any(keyword in sentence for keyword in ['人工智能', 'AI', '定义']):
+                if any(q_word in query for q_word in ['什么是', '定义', '人工智能']):
+                    key_sentences.append(sentence)
+            
+            elif any(keyword in sentence for keyword in ['神经网络', '网络', '算法', '模型']):
+                if any(q_word in query for q_word in ['神经网络', '原理', '什么是']):
+                    key_sentences.append(sentence)
+                    
+            elif any(keyword in sentence for keyword in ['深度学习', '应用', '领域', '突破']):
+                if any(q_word in query for q_word in ['深度学习', '应用', '用途']):
+                    key_sentences.append(sentence)
+    
+    if key_sentences:
+        # 取最相关的1-2个句子
+        result = '。'.join(key_sentences[:2])
+        if not result.endswith('。'):
+            result += '。'
+        return result
+    
+    # 如果没有匹配的关键句子，返回第一个证据的简化版本
+    first_evidence = evidence[0]['text']
+    first_evidence = _clean_evidence_text(first_evidence)
+    
+    # 提取前100个字符作为摘要
+    summary = first_evidence[:100].strip()
+    if len(summary) > 20:
+        if not summary.endswith('。'):
+            summary += '。'
+        return f"根据资料显示：{summary}"
+    
+    return "抱歉，无法从提供的材料中提取到相关信息。"
 
 
 @router.post('/rag')
@@ -97,15 +366,12 @@ def rag(req: RAGRequest):
     if not entry:
         raise HTTPException(status_code=404, detail=f'Dataset {dataset} not found')
 
-    # 兼容旧 manifest 的 'index' 字段，以及新的 'index_safe' / 'index_original'
-    index_file = entry.get('index_safe') or entry.get('index') or entry.get('index_original')
-    meta = entry.get('meta', [])
-    if not index_file:
-        raise HTTPException(status_code=400, detail=f'Dataset {dataset} has no index')
-
-    index_path = DATA_DIR / index_file
-    if not index_path.exists():
-        raise HTTPException(status_code=404, detail=f'Index file not found: {index_path}')
+    # 使用统一的索引路径访问 API
+    try:
+        index_path = get_index_path(dataset)
+        meta = entry.get('meta', [])
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     index = load_faiss_index(str(index_path))
     nb = getattr(index, 'ntotal', None)
@@ -143,18 +409,8 @@ def rag(req: RAGRequest):
     # 去重并限制证据长度
     evidence = _dedupe_evidence(evidence, max_chars=2000)
 
-    # 构建更严格的 prompt：明确指令、简洁回答、不复述证据
-    prompt_parts = [
-        "你是一个基于提供证据的助理。请仅根据下面的证据回答问题。",
-        "要求：直接给出简洁答案（1-3 句），不要复述证据内容或重复问题；如果证据不足，请明确说明。",
-        "证据：",
-    ]
-    for i, e in enumerate(evidence, start=1):
-        snippet = e['text'].strip()
-        prompt_parts.append(f"[{i}] {snippet}")
-    prompt_parts.append(f"问题：{req.query}")
-    prompt_parts.append("只返回最终答案，不要包含额外的说明。")
-    prompt = "\n\n".join(prompt_parts)
+    # 构建针对不同模型优化的 prompt
+    prompt = _build_optimized_prompt(req.query, evidence, req.gen_model or DEFAULT_GEN_MODEL)
 
     # 尝试使用 Ollama（若配置允许），否则回退到本地 transformers 模型生成
     use_ollama = DEFAULT_ENABLE_OLLAMA
@@ -199,21 +455,29 @@ def rag(req: RAGRequest):
         if is_seq2seq:
             task = 'text2text-generation'
         
-        # 对于 seq2seq 模型，简化 prompt（T5 不需要复杂的指令格式）
-        if is_seq2seq:
-            # T5/FLAN 更适合简洁的 prompt
-            simple_prompt = f"问题: {req.query}\n\n证据: {' '.join([e['text'][:200] for e in evidence[:2]])}\n\n答案:"
-            gen_prompt = simple_prompt
-        else:
-            gen_prompt = prompt
+        # 使用优化后的 prompt（已经根据模型类型进行了优化）
+        gen_prompt = prompt
             
         # 尝试使用 GPU device 0，否则默认
         try:
             generator = pipeline(task, model=gen_model, device=0)
-            out = generator(gen_prompt, max_new_tokens=128, do_sample=False, temperature=0.0, truncation=True)
+            # 对于 FLAN-T5，使用更保守的生成参数
+            if is_seq2seq:
+                out = generator(gen_prompt, max_new_tokens=50, do_sample=False, 
+                               temperature=0.0, truncation=True, 
+                               no_repeat_ngram_size=3)
+            else:
+                out = generator(gen_prompt, max_new_tokens=128, do_sample=False, 
+                               temperature=0.0, truncation=True)
         except Exception:
             generator = pipeline(task, model=gen_model)
-            out = generator(gen_prompt, max_new_tokens=128, do_sample=False, temperature=0.0, truncation=True)
+            if is_seq2seq:
+                out = generator(gen_prompt, max_new_tokens=50, do_sample=False, 
+                               temperature=0.0, truncation=True,
+                               no_repeat_ngram_size=3)
+            else:
+                out = generator(gen_prompt, max_new_tokens=128, do_sample=False, 
+                               temperature=0.0, truncation=True)
         # 提取生成结果
         if isinstance(out, list) and len(out) > 0:
             # text2text returns 'generated_text' or 'summary_text' depending on pipeline
@@ -227,5 +491,9 @@ def rag(req: RAGRequest):
 
         # 后处理：剥离 prompt 并提取首个合理答案段
         answer = _postprocess_generated_text(raw, prompt)
+        
+        # 如果生成失败，尝试从证据中提取关键信息作为 fallback
+        if not answer or answer == "无法根据提供的材料生成答案。" or len(answer) < 10:
+            answer = _extract_key_info_from_evidence(req.query, evidence)
 
     return {'answer': answer, 'evidence': evidence}
