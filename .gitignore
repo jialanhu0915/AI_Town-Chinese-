@@ -29,6 +29,7 @@ ai_town/logs/
 *.sqlite3
 data/
 ai_town/data/
+ai_town/data/simulation_results/
 
 # 临时文件
 *.tmp

@@ -476,6 +476,17 @@ class World:
     
     def save_world_state(self, filepath: str):
         """保存世界状态到文件"""
+        import os
+        from pathlib import Path
+        
+        # 确保数据目录存在
+        data_dir = Path("ai_town/data/simulation_results")
+        data_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 如果传入的是文件名，则放到数据目录中
+        if not os.path.dirname(filepath):
+            filepath = data_dir / filepath
+        
         world_data = {
             'timestamp': GameTime.format_time(),
             'step_count': self.step_count,
