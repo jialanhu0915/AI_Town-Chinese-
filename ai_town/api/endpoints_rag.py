@@ -50,15 +50,34 @@ def _postprocess_generated_text(generated: str, prompt: str) -> str:
     """尝试从生成文本中剥离原始 prompt 并返回首个合理答复段落。"""
     if not generated:
         return generated
-    # 如果模型把 prompt 原样回显，尝试删除 prompt
+    
+    # 清理生成文本
+    generated = generated.strip()
+    
+    # 对于 text2text-generation 模型（如 T5），通常不会包含 prompt
+    # 但可能包含一些格式标记或重复内容
+    
+    # 如果模型把 prompt 原样回显，尝试删除 prompt（主要针对 causal LM）
     if prompt and prompt in generated:
-        generated = generated.split(prompt, 1)[-1]
-    # 分为段落，返回第一个非空段落
-    parts = [p.strip() for p in generated.split('\n') if p.strip()]
+        generated = generated.split(prompt, 1)[-1].strip()
+    
+    # 删除常见的开头标记
+    prefixes_to_remove = ["答案:", "回答:", "Answer:", "Response:", "答:", "A:"]
+    for prefix in prefixes_to_remove:
+        if generated.startswith(prefix):
+            generated = generated[len(prefix):].strip()
+    
+    # 分为段落，返回第一个有意义的段落
+    parts = [p.strip() for p in generated.split('\n') if p.strip() and not p.strip().startswith(('问题', 'Question', '证据', 'Evidence'))]
     if parts:
-        # 有时生成会把问题再次重复，保守选择最后一段或第一段
-        return parts[0]
-    return generated
+        # 选择第一个非空且有意义的段落
+        first_meaningful = parts[0]
+        # 如果第一段过短且有第二段，考虑合并
+        if len(first_meaningful) < 20 and len(parts) > 1:
+            return f"{first_meaningful} {parts[1]}"
+        return first_meaningful
+    
+    return generated if generated else "无法生成答案"
 
 
 @router.post('/rag')
@@ -78,7 +97,8 @@ def rag(req: RAGRequest):
     if not entry:
         raise HTTPException(status_code=404, detail=f'Dataset {dataset} not found')
 
-    index_file = entry.get('index')
+    # 兼容旧 manifest 的 'index' 字段，以及新的 'index_safe' / 'index_original'
+    index_file = entry.get('index_safe') or entry.get('index') or entry.get('index_original')
     meta = entry.get('meta', [])
     if not index_file:
         raise HTTPException(status_code=400, detail=f'Dataset {dataset} has no index')
@@ -175,15 +195,25 @@ def rag(req: RAGRequest):
         # 选择 pipeline 任务：若是 encoder-decoder（t5/flan）使用 text2text-generation
         task = 'text-generation'
         low_name = str(gen_model).lower()
-        if any(x in low_name for x in ('t5', 'flan', 'bart', 'pegasus')):
+        is_seq2seq = any(x in low_name for x in ('t5', 'flan', 'bart', 'pegasus'))
+        if is_seq2seq:
             task = 'text2text-generation'
+        
+        # 对于 seq2seq 模型，简化 prompt（T5 不需要复杂的指令格式）
+        if is_seq2seq:
+            # T5/FLAN 更适合简洁的 prompt
+            simple_prompt = f"问题: {req.query}\n\n证据: {' '.join([e['text'][:200] for e in evidence[:2]])}\n\n答案:"
+            gen_prompt = simple_prompt
+        else:
+            gen_prompt = prompt
+            
         # 尝试使用 GPU device 0，否则默认
         try:
             generator = pipeline(task, model=gen_model, device=0)
-            out = generator(prompt, max_new_tokens=64, do_sample=False, temperature=0.0)
+            out = generator(gen_prompt, max_new_tokens=128, do_sample=False, temperature=0.0, truncation=True)
         except Exception:
             generator = pipeline(task, model=gen_model)
-            out = generator(prompt, max_new_tokens=64, do_sample=False, temperature=0.0)
+            out = generator(gen_prompt, max_new_tokens=128, do_sample=False, temperature=0.0, truncation=True)
         # 提取生成结果
         if isinstance(out, list) and len(out) > 0:
             # text2text returns 'generated_text' or 'summary_text' depending on pipeline

@@ -48,7 +48,8 @@ def retrieve(req: RetrieveRequest):
     if not entry:
         raise HTTPException(status_code=404, detail=f'Dataset {dataset} not found')
 
-    index_file = entry.get('index')
+    # 兼容旧 manifest 的 'index' 字段，以及新的 'index_safe' / 'index_original'
+    index_file = entry.get('index_safe') or entry.get('index') or entry.get('index_original')
     meta = entry.get('meta', [])
     if not index_file:
         raise HTTPException(status_code=400, detail=f'Dataset {dataset} has no index')
