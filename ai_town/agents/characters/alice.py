@@ -7,6 +7,7 @@ from ai_town.agents.base_agent import BaseAgent, Position
 from ai_town.core.time_manager import GameTime
 from typing import List, Dict, Any
 import asyncio
+import random
 
 
 class Alice(BaseAgent):
@@ -182,3 +183,74 @@ class Alice(BaseAgent):
             "Manage inventory",
             "Balance daily cash register"
         ]
+    
+    async def _decide_next_action(self) -> Dict[str, Any]:
+        """Alice特定的行为决策"""
+        from ai_town.core.time_manager import GameTime
+        import random
+        
+        current_time = GameTime.now()
+        time_of_day = GameTime.get_time_of_day()
+        
+        # 根据时间和性格特征决定行为
+        if time_of_day in ['morning', 'afternoon']:
+            # 工作时间，在咖啡店
+            if self.position.area != "coffee_shop":
+                return {
+                    'type': 'move',
+                    'position': {'x': 25, 'y': 25, 'area': 'coffee_shop'},
+                    'reason': '去咖啡店工作'
+                }
+            else:
+                # 在咖啡店内的工作行为
+                work_actions = [
+                    {'type': 'work', 'description': '制作新鲜咖啡'},
+                    {'type': 'work', 'description': '清理咖啡机'},
+                    {'type': 'work', 'description': '招呼顾客'},
+                    {'type': 'work', 'description': '尝试新的咖啡配方'},
+                    {'type': 'socialize', 'description': '与常客聊天'}
+                ]
+                return random.choice(work_actions)
+        
+        elif time_of_day == 'evening':
+            # 傍晚时光，可能外出社交或继续工作
+            if self.position.area == "coffee_shop" and random.random() < 0.4:
+                # 40%概率外出
+                evening_destinations = [
+                    {'x': 50, 'y': 50, 'area': 'park', 'reason': '去公园散步'},
+                    {'x': 35, 'y': 20, 'area': 'bookstore', 'reason': '去书店看看有什么新书'},
+                    {'x': 70, 'y': 40, 'area': 'restaurant', 'reason': '去餐厅吃晚饭'},
+                    {'x': 60, 'y': 55, 'area': 'market', 'reason': '去市场买新鲜食材'}
+                ]
+                destination = random.choice(evening_destinations)
+                return {
+                    'type': 'move',
+                    'position': {'x': destination['x'], 'y': destination['y'], 'area': destination['area']},
+                    'reason': destination['reason']
+                }
+            else:
+                # 继续在咖啡店或其他地方的活动
+                evening_activities = [
+                    {'type': 'socialize', 'description': '与朋友聊天'},
+                    {'type': 'explore', 'description': '探索小镇新角落'},
+                    {'type': 'relax', 'description': '享受悠闲时光'},
+                    {'type': 'plan', 'description': '计划明天的咖啡店活动'}
+                ]
+                return random.choice(evening_activities)
+        
+        else:  # night
+            # 夜晚回家休息
+            if self.position.area != "house_1":
+                return {
+                    'type': 'move',
+                    'position': {'x': 10, 'y': 75, 'area': 'house_1'},
+                    'reason': '回家休息'
+                }
+            else:
+                night_activities = [
+                    {'type': 'relax', 'description': '阅读咖啡制作相关的书籍'},
+                    {'type': 'plan', 'description': '为明天准备新的咖啡配方'},
+                    {'type': 'rest', 'description': '准备就寝'},
+                    {'type': 'think', 'description': '回想今天与顾客的有趣对话'}
+                ]
+                return random.choice(night_activities)

@@ -92,17 +92,20 @@ python -c "
 import asyncio
 import sys
 sys.path.append('.')
-from ai_town.simulation_runner import main
 from ai_town.core.world import World
 from ai_town.core.time_manager import GameTime
-from ai_town.agents.characters.alice import Alice
+from ai_town.agents.agent_manager import agent_manager
 
 async def timed_simulation():
     GameTime.initialize(time_multiplier=10.0)
     world = World()
-    alice = Alice()
-    world.add_agent(alice)
-    print(f'🏃 模拟运行 %duration% 分钟...')
+    
+    # 使用智能体管理器创建智能体
+    created_agents = agent_manager.create_default_agents()
+    for agent in created_agents:
+        world.add_agent(agent)
+    
+    print(f'🏃 模拟运行 %duration% 分钟，共有 {len(created_agents)} 个智能体...')
     await world.run_simulation(duration_minutes=%duration%)
 
 asyncio.run(timed_simulation())
