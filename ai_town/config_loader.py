@@ -57,7 +57,12 @@ def load_env_file(env_path: Path = None) -> Dict[str, str]:
 
 def get_llm_config_for_agent(agent_name: str) -> Dict[str, Any]:
     """获取指定智能体的 LLM 配置"""
-    from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
+    try:
+        from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
+    except ImportError:
+        import sys
+        sys.path.append(str(PROJECT_ROOT))
+        from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
     
     # 获取智能体特定配置，如果不存在则使用默认配置
     agent_config = AGENT_LLM_CONFIG.get(agent_name, AGENT_LLM_CONFIG["default"])
@@ -81,7 +86,12 @@ def switch_llm_model(model_name: str):
 
 def show_current_config():
     """显示当前 LLM 配置"""
-    from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
+    try:
+        from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
+    except ImportError:
+        import sys
+        sys.path.append(str(PROJECT_ROOT))
+        from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
     
     print("🔧 当前 AI Town LLM 配置:")
     print("=" * 50)
