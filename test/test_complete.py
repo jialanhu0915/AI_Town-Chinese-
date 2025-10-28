@@ -58,9 +58,9 @@ async def test_all_agents():
         for agent_id, agent in world.agents.items():
             try:
                 action = await agent._decide_next_action()
-                print(
-                    f'   - {agent.name}: {action.get("type", "unknown")} - {action.get("description", action.get("reason", ""))}'
-                )
+                action_type = action.get("type", "unknown")
+                action_desc = action.get("description", action.get("reason", ""))
+                print(f"   - {agent.name}: {action_type} - {action_desc}")
             except Exception as e:
                 pytest.fail(f"{agent.name} 行为决策失败: {e}")
 
@@ -142,7 +142,9 @@ def test_project_structure():
             print(f"   ❌ {file_path} - 缺失")
             missing_files.append(file_path)
 
-    assert len(missing_files) == 0, f"项目结构不完整，缺失 {len(missing_files)} 个文件: {missing_files}"
+    assert (
+        len(missing_files) == 0
+    ), f"项目结构不完整，缺失 {len(missing_files)} 个文件: {missing_files}"
     print(f"✅ 项目结构完整，所有必需文件都存在")
 
 
@@ -209,7 +211,7 @@ async def main():
 
         GameTime.initialize()
         start_time = GameTime.format_time()
-    except:
+    except Exception:
         start_time = "未初始化"
 
     print(f"开始时间: {start_time}")
