@@ -3,6 +3,7 @@
 """
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -11,6 +12,12 @@ import pytest
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+# CI环境配置
+if os.getenv('CI') == 'true':
+    # 在CI环境中强制使用mock LLM
+    os.environ.setdefault('AI_TOWN_LLM_PROVIDER', 'mock')
+    os.environ.setdefault('SKIP_OLLAMA_TESTS', 'true')
 
 
 @pytest.fixture(scope="session")

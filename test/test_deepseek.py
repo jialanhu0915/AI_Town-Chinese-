@@ -4,8 +4,11 @@
 """
 
 import asyncio
+import os
 import sys
 from pathlib import Path
+
+import pytest
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent
@@ -15,6 +18,10 @@ from ai_town.config_loader import get_current_llm_model, initialize_config
 from ai_town.llm.llm_integration import ask_llm, chat_with_llm, setup_default_llm_providers
 
 
+@pytest.mark.skipif(
+    os.getenv('CI') == 'true' or os.getenv('SKIP_OLLAMA_TESTS') == 'true',
+    reason="跳过需要Ollama的测试在CI环境中"
+)
 async def test_deepseek_model():
     """测试 DeepSeek-R1 模型"""
     
