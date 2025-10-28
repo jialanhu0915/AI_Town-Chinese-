@@ -18,6 +18,7 @@ from ai_town.config_loader import get_current_llm_model, initialize_config
 from ai_town.llm.llm_integration import ask_llm, chat_with_llm, setup_default_llm_providers
 
 
+@pytest.mark.asyncio
 @pytest.mark.skipif(
     os.getenv("CI") == "true" or os.getenv("SKIP_OLLAMA_TESTS") == "true",
     reason="跳过需要Ollama的测试在CI环境中",

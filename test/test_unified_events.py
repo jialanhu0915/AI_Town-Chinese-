@@ -3,9 +3,10 @@
 验证事件注册表和格式化器的功能
 """
 
-import os
 import sys
 from pathlib import Path
+
+import pytest
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent
@@ -88,41 +89,27 @@ def test_frontend_metadata():
     print("✅ 前端元数据测试通过")
 
 
-def main():
-    """运行所有测试"""
+if __name__ == "__main__":
     print("🚀 开始统一事件系统测试")
     print("=" * 50)
 
-    try:
-        test_event_registry()
-        test_event_formatter()
-        test_frontend_metadata()
+    pytest.main([__file__, "-v"])
 
-        print("=" * 50)
-        print("🎉 所有测试通过！统一事件系统工作正常")
+    # 显示一些统计信息
+    all_events = event_registry.get_all_events()
+    print(f"\n📊 系统统计:")
+    print(f"   总事件类型数: {len(all_events)}")
 
-        # 显示一些统计信息
-        all_events = event_registry.get_all_events()
-        print(f"\n📊 系统统计:")
-        print(f"   总事件类型数: {len(all_events)}")
+    from ai_town.events.event_registry import EventCategory
 
-        from ai_town.events.event_registry import EventCategory
+    for category in EventCategory:
+        category_events = event_registry.get_events_by_category(category)
+        print(f"   {category.value}: {len(category_events)} 个事件")
 
-        for category in EventCategory:
-            category_events = event_registry.get_events_by_category(category)
-            print(f"   {category.value}: {len(category_events)} 个事件")
+    # 显示每个角色的专属事件
+    for agent in ["alice", "bob", "charlie"]:
+        agent_events = event_registry.get_events_by_tags([agent])
+        print(f"   {agent}: {len(agent_events)} 个专属事件")
 
-        # 显示每个角色的专属事件
-        for agent in ["alice", "bob", "charlie"]:
-            agent_events = event_registry.get_events_by_tags([agent])
-            print(f"   {agent}: {len(agent_events)} 个专属事件")
-
-    except Exception as e:
-        print(f"❌ 测试失败: {e}")
-        import traceback
-
-        traceback.print_exc()
-
-
-if __name__ == "__main__":
-    main()
+    print("=" * 50)
+    print("🎉 统一事件系统测试完成！")

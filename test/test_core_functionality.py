@@ -118,7 +118,7 @@ def test_behavior_system():
     # 测试Bob的行为配置
     bob_behaviors = bob.available_behaviors
     assert "read" in bob_behaviors, "Bob应该有阅读行为"
-    assert "organizing_books" in bob_behaviors, "Bob应该有整理书籍的行为"
+    assert "organize_books" in bob_behaviors, "Bob应该有整理书籍的行为"
 
     # 测试行为偏好
     alice_preferences = alice.behavior_preferences

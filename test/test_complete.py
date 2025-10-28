@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 # 添加项目根目录到路径
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
 print("🧪 AI 小镇完整系统测试")
@@ -62,8 +62,7 @@ async def test_all_agents():
                     f'   - {agent.name}: {action.get("type", "unknown")} - {action.get("description", action.get("reason", ""))}'
                 )
             except Exception as e:
-                print(f"   ❌ {agent.name} 行为决策失败: {e}")
-                return False
+                pytest.fail(f"{agent.name} 行为决策失败: {e}")
 
         # 运行几步模拟
         print(f"\n⏩ 运行模拟测试（3步）...")
@@ -78,14 +77,8 @@ async def test_all_agents():
 
         print(f"✅ 模拟系统运行正常")
 
-        return True
-
     except Exception as e:
-        print(f"❌ 智能体系统测试失败: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return False
+        pytest.fail(f"智能体系统测试失败: {e}")
 
 
 @pytest.mark.asyncio
@@ -103,32 +96,22 @@ async def test_visualization_components():
         manager = VisualizationManager()
         await manager.initialize_world()
 
-        if manager.world and len(manager.world.agents) > 0:
-            print(f"✅ 可视化管理器世界初始化成功，{len(manager.world.agents)} 个智能体")
-        else:
-            print(f"❌ 可视化管理器世界初始化失败")
-            return False
+        assert manager.world is not None, "可视化管理器应该有world对象"
+        assert len(manager.world.agents) > 0, "世界应该有智能体"
+        print(f"✅ 可视化管理器世界初始化成功，{len(manager.world.agents)} 个智能体")
 
         # 测试世界状态获取
         world_state = manager.world.get_world_state()
         required_keys = ["current_time", "agent_positions", "map_data"]
 
         for key in required_keys:
-            if key in world_state:
-                print(f"   ✅ 世界状态包含 {key}")
-            else:
-                print(f"   ❌ 世界状态缺失 {key}")
-                return False
+            assert key in world_state, f"世界状态应该包含 {key}"
+            print(f"   ✅ 世界状态包含 {key}")
 
         print(f"✅ 可视化组件测试通过")
-        return True
 
     except Exception as e:
-        print(f"❌ 可视化组件测试失败: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return False
+        pytest.fail(f"可视化组件测试失败: {e}")
 
 
 def test_project_structure():
@@ -159,12 +142,8 @@ def test_project_structure():
             print(f"   ❌ {file_path} - 缺失")
             missing_files.append(file_path)
 
-    if missing_files:
-        print(f"❌ 项目结构不完整，缺失 {len(missing_files)} 个文件")
-        return False
-    else:
-        print(f"✅ 项目结构完整，所有必需文件都存在")
-        return True
+    assert len(missing_files) == 0, f"项目结构不完整，缺失 {len(missing_files)} 个文件: {missing_files}"
+    print(f"✅ 项目结构完整，所有必需文件都存在")
 
 
 def test_extensibility():
@@ -205,32 +184,22 @@ def test_extensibility():
 
         # 验证注册成功
         available_agents = AgentRegistry.get_available_agents()
-        if "test_agent" in available_agents:
-            print(f"✅ 自定义智能体注册成功")
-        else:
-            print(f"❌ 自定义智能体注册失败")
-            return False
+        assert "test_agent" in available_agents, "自定义智能体应该被成功注册"
+        print(f"✅ 自定义智能体注册成功")
 
         # 测试创建自定义智能体
         from ai_town.agents.agent_manager import agent_manager
 
         test_agent = agent_manager.create_agent("test_agent")
 
-        if test_agent and test_agent.name == "TestAgent":
-            print(f"✅ 自定义智能体创建成功: {test_agent.name}")
-        else:
-            print(f"❌ 自定义智能体创建失败")
-            return False
+        assert test_agent is not None, "自定义智能体应该能被创建"
+        assert test_agent.name == "TestAgent", "自定义智能体的名字应该正确"
+        print(f"✅ 自定义智能体创建成功: {test_agent.name}")
 
         print(f"✅ 系统可扩展性测试通过")
-        return True
 
     except Exception as e:
-        print(f"❌ 可扩展性测试失败: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return False
+        pytest.fail(f"可扩展性测试失败: {e}")
 
 
 async def main():
