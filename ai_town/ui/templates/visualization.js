@@ -7,38 +7,76 @@ class AITownVisualizer {
         this.selectedAgent = null;
         this.worldState = null;
         
+        // 动画相关
+        this.animationFrame = null;
+        this.agentPositions = {}; // 当前显示位置（用于动画）
+        this.targetPositions = {}; // 目标位置
+        this.animationSpeed = 50; // 动画速度（像素每秒）
+        this.lastUpdateTime = Date.now();
+        this.needsRedraw = true; // 优化：仅在需要时重绘
+        
+        // 位置历史追踪
+        this.positionHistory = {}; // 每个智能体的位置历史
+        this.maxHistoryLength = 15; // 最大历史记录数
+        this.trailFadeTime = 3000; // 轨迹淡出时间（毫秒）
+        this.showTrails = true; // 是否显示轨迹
+        
         // 颜色配置
         this.colors = {
-            background: '#e8f5e8',
-            grid: '#d0d0d0',
+            background: '#f0f8ff',
+            grid: '#e0e0e0',
+            gridMajor: '#c0c0c0',
             buildings: {
-                coffee_shop: '#4CAF50',
-                bookstore: '#2196F3', 
-                office_1: '#FF9800',
-                office_2: '#FF9800',
-                house_1: '#E91E63',
-                house_2: '#E91E63',
-                house_3: '#E91E63',
-                park: '#8BC34A',
-                market: '#9C27B0',
-                restaurant: '#F44336'
+                coffee_shop: '#8B4513',
+                bookstore: '#4169E1', 
+                office_1: '#FF8C00',
+                office_2: '#FF8C00',
+                house_1: '#DC143C',
+                house_2: '#DC143C',
+                house_3: '#DC143C',
+                park: '#228B22',
+                market: '#9370DB',
+                restaurant: '#FF4500'
             },
             agents: {
-                alice: '#FF6B6B',
-                bob: '#4ECDC4',
-                charlie: '#45B7D1'
+                alice: '#FF1493',
+                bob: '#00CED1',
+                charlie: '#FFD700'
+            },
+            trail: {
+                alice: 'rgba(255, 20, 147, 0.3)',
+                bob: 'rgba(0, 206, 209, 0.3)',
+                charlie: 'rgba(255, 215, 0, 0.3)'
             }
         };
         
         this.initEventListeners();
         this.setupCanvas();
         this.connectWebSocket();
+        this.startAnimationLoop();
     }
     
     initEventListeners() {
         document.getElementById('startBtn').addEventListener('click', () => this.startSimulation());
         document.getElementById('pauseBtn').addEventListener('click', () => this.pauseSimulation());
         document.getElementById('resetBtn').addEventListener('click', () => this.resetSimulation());
+        
+        // 动画控制
+        const speedSlider = document.getElementById('animationSpeed');
+        if (speedSlider) {
+            speedSlider.addEventListener('input', (e) => {
+                this.animationSpeed = parseInt(e.target.value);
+                this.needsRedraw = true;
+            });
+        }
+        
+        const trailsCheckbox = document.getElementById('showTrails');
+        if (trailsCheckbox) {
+            trailsCheckbox.addEventListener('change', (e) => {
+                this.showTrails = e.target.checked;
+                this.needsRedraw = true;
+            });
+        }
         
         // 画布点击事件
         this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
@@ -106,7 +144,7 @@ class AITownVisualizer {
                 }
                 
                 this.updateUI();
-                this.redraw();
+                // 不要在这里调用redraw()，让动画循环来处理
                 break;
             case 'simulation_started':
                 this.isRunning = true;
@@ -119,8 +157,11 @@ class AITownVisualizer {
             case 'simulation_reset':
                 this.worldState = null;
                 this.selectedAgent = null;
+                this.agentPositions = {};
+                this.targetPositions = {};
+                this.positionHistory = {};
                 this.updateUI();
-                this.redraw();
+                this.needsRedraw = true;
                 break;
         }
     }
@@ -273,14 +314,21 @@ class AITownVisualizer {
             return;
         }
         
-        const events = this.worldState.events.slice(-10);  // 显示最近10个事件
+        const events = this.worldState.events.slice(-15);  // 显示最近15个事件
         let html = '';
         
         events.reverse().forEach(event => {
+            const eventDisplay = this.formatEventDisplay(event);
             html += `
-                <div class="event-item">
-                    <div class="event-time">${this.formatEventTime(event.timestamp)}</div>
-                    <div>${this.translateEventDescription(event.description)}</div>
+                <div class="event-item ${eventDisplay.type}">
+                    <div class="event-header">
+                        <span class="event-icon">${eventDisplay.icon}</span>
+                        <span class="event-time">${this.formatEventTime(event.timestamp)}</span>
+                        <span class="event-type">${eventDisplay.typeLabel}</span>
+                    </div>
+                    <div class="event-description">${eventDisplay.description}</div>
+                    ${eventDisplay.participants ? `<div class="event-participants">参与者: ${eventDisplay.participants}</div>` : ''}
+                    ${event.duration ? `<div class="event-duration">持续: ${this.formatDuration(event.duration)}</div>` : ''}
                 </div>
             `;
         });
@@ -291,27 +339,390 @@ class AITownVisualizer {
     formatEventTime(timestamp) {
         if (!timestamp) return '';
         const date = new Date(timestamp);
-        return date.toLocaleTimeString('zh-CN');
+        return date.toLocaleTimeString('zh-CN', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+    }
+    
+    formatDuration(duration) {
+        if (!duration) return '';
+        if (duration < 60) {
+            return `${Math.round(duration)}秒`;
+        } else if (duration < 3600) {
+            return `${Math.round(duration / 60)}分钟`;
+        } else {
+            return `${Math.round(duration / 3600)}小时`;
+        }
+    }
+    
+    formatEventDisplay(event) {
+        const eventType = event.event_type || 'unknown';
+        let icon = '📝';
+        let typeLabel = '事件';
+        let description = event.description || '';
+        let participants = '';
+        
+        // 格式化参与者
+        if (event.participants && Array.isArray(event.participants)) {
+            participants = event.participants.map(p => this.getAgentDisplayName(p)).join(', ');
+        }
+        
+        // 根据事件类型设置图标和标签
+        switch (eventType) {
+            case 'movement':
+                icon = '🚶';
+                typeLabel = '移动';
+                description = this.formatMovementEvent(event);
+                break;
+            case 'conversation':
+                icon = '💬';
+                typeLabel = '对话';
+                description = this.formatConversationEvent(event);
+                break;
+            case 'interaction':
+                icon = '🤝';
+                typeLabel = '互动';
+                description = this.formatInteractionEvent(event);
+                break;
+            case 'planning':
+                icon = '🤔';
+                typeLabel = '规划';
+                description = this.formatPlanningEvent(event);
+                break;
+            case 'reflection':
+                icon = '💭';
+                typeLabel = '思考';
+                description = this.formatReflectionEvent(event);
+                break;
+            case 'work':
+                icon = '💼';
+                typeLabel = '工作';
+                description = this.formatWorkEvent(event);
+                break;
+            case 'social':
+            case 'socialize':
+                icon = '👥';
+                typeLabel = '社交';
+                description = this.formatSocialEvent(event);
+                break;
+            // Alice 相关行为
+            case 'customer_greeting':
+                icon = '👋';
+                typeLabel = '迎客';
+                description = this.formatCustomerServiceEvent(event);
+                break;
+            case 'coffee_making':
+                icon = '☕';
+                typeLabel = '制作咖啡';
+                description = this.formatCoffeeEvent(event);
+                break;
+            case 'friendly_chat':
+                icon = '😊';
+                typeLabel = '闲聊';
+                description = this.formatFriendlyChatEvent(event);
+                break;
+            case 'drink_recommendation':
+                icon = '🥤';
+                typeLabel = '推荐饮品';
+                description = this.formatRecommendationEvent(event);
+                break;
+            case 'shop_maintenance':
+                icon = '🧹';
+                typeLabel = '店铺维护';
+                description = this.formatMaintenanceEvent(event);
+                break;
+            // Bob 相关行为
+            case 'organizing_books':
+                icon = '📚';
+                typeLabel = '整理书籍';
+                description = this.formatBookOrganizingEvent(event);
+                break;
+            case 'customer_service':
+                icon = '🤝';
+                typeLabel = '客户服务';
+                description = this.formatCustomerServiceEvent(event);
+                break;
+            case 'researching':
+                icon = '🔍';
+                typeLabel = '研究';
+                description = this.formatResearchEvent(event);
+                break;
+            case 'book_recommendation':
+                icon = '📖';
+                typeLabel = '推荐书籍';
+                description = this.formatBookRecommendationEvent(event);
+                break;
+            case 'reading':
+                icon = '📘';
+                typeLabel = '阅读';
+                description = this.formatReadingEvent(event);
+                break;
+            case 'creating':
+                icon = '✍️';
+                typeLabel = '创作';
+                description = this.formatCreatingEvent(event);
+                break;
+            // Charlie 相关行为
+            case 'networking':
+                icon = '🤝';
+                typeLabel = '建立人脉';
+                description = this.formatNetworkingEvent(event);
+                break;
+            case 'meeting_attendance':
+                icon = '👔';
+                typeLabel = '参加会议';
+                description = this.formatMeetingEvent(event);
+                break;
+            case 'lunch_break':
+                icon = '🍽️';
+                typeLabel = '午休';
+                description = this.formatLunchBreakEvent(event);
+                break;
+            case 'exercising':
+                icon = '💪';
+                typeLabel = '锻炼';
+                description = this.formatExerciseEvent(event);
+                break;
+            case 'skill_learning':
+                icon = '📚';
+                typeLabel = '学习技能';
+                description = this.formatSkillLearningEvent(event);
+                break;
+            case 'town_exploration':
+                icon = '🗺️';
+                typeLabel = '探索小镇';
+                description = this.formatTownExplorationEvent(event);
+                break;
+            default:
+                description = this.translateEventDescription(event.description || '');
+                break;
+        }
+        
+        return {
+            type: eventType,
+            icon,
+            typeLabel,
+            description,
+            participants
+        };
+    }
+    
+    formatMovementEvent(event) {
+        const desc = event.description || '';
+        let formatted = desc;
+        
+        // 匹配移动模式: "X moved from A to B"
+        const moveMatch = desc.match(/(\w+)\s+moved from\s+(\w+)\s+to\s+(\w+)/i);
+        if (moveMatch) {
+            const [, agent, from, to] = moveMatch;
+            const agentName = this.getAgentDisplayName(agent);
+            const fromArea = this.getAreaDisplayName(from);
+            const toArea = this.getAreaDisplayName(to);
+            formatted = `${agentName} 从${fromArea}移动到${toArea}`;
+        } else {
+            formatted = this.translateEventDescription(desc);
+        }
+        
+        return formatted;
+    }
+    
+    formatConversationEvent(event) {
+        const desc = event.description || '';
+        let formatted = desc;
+        
+        // 匹配对话模式: "X started conversation with Y"
+        const convMatch = desc.match(/(\w+)\s+started conversation with\s+(\w+)/i);
+        if (convMatch) {
+            const [, agent1, agent2] = convMatch;
+            const name1 = this.getAgentDisplayName(agent1);
+            const name2 = this.getAgentDisplayName(agent2);
+            formatted = `${name1} 与 ${name2} 开始对话`;
+        } else {
+            formatted = this.translateEventDescription(desc);
+        }
+        
+        return formatted;
+    }
+    
+    formatInteractionEvent(event) {
+        const desc = event.description || '';
+        return this.translateEventDescription(desc)
+            .replace(/interaction/gi, '互动')
+            .replace(/with/gi, '与');
+    }
+    
+    formatPlanningEvent(event) {
+        const desc = event.description || '';
+        return this.translateEventDescription(desc)
+            .replace(/planning/gi, '正在规划')
+            .replace(/decided to/gi, '决定')
+            .replace(/thinking about/gi, '正在思考');
+    }
+    
+    formatReflectionEvent(event) {
+        const desc = event.description || '';
+        return this.translateEventDescription(desc)
+            .replace(/reflection/gi, '反思')
+            .replace(/realized/gi, '意识到')
+            .replace(/learned/gi, '学到了');
+    }
+    
+    formatWorkEvent(event) {
+        const desc = event.description || '';
+        return this.translateEventDescription(desc)
+            .replace(/working/gi, '正在工作')
+            .replace(/serving/gi, '正在服务')
+            .replace(/managing/gi, '正在管理');
+    }
+    
+    formatSocialEvent(event) {
+        const desc = event.description || '';
+        return this.translateEventDescription(desc)
+            .replace(/socializing/gi, '社交')
+            .replace(/meeting/gi, '会面')
+            .replace(/greeting/gi, '问候');
+    }
+    
+    formatCustomerServiceEvent(event) {
+        const desc = event.description || '';
+        const agentName = this.getAgentDisplayName(event.participants?.[0] || 'agent');
+        return `${agentName} 正在为顾客提供服务`;
+    }
+    
+    formatCoffeeEvent(event) {
+        const desc = event.description || '';
+        const coffeeType = event.coffee_type || '咖啡';
+        return `Alice 正在制作 ${coffeeType}`;
+    }
+    
+    formatFriendlyChatEvent(event) {
+        const desc = event.description || '';
+        return `Alice 正在与常客友好聊天`;
+    }
+    
+    formatRecommendationEvent(event) {
+        const desc = event.description || '';
+        return `Alice 正在为顾客推荐饮品`;
+    }
+    
+    formatMaintenanceEvent(event) {
+        const desc = event.description || '';
+        return `Alice 正在清洁和维护咖啡店`;
+    }
+    
+    formatBookOrganizingEvent(event) {
+        const desc = event.description || '';
+        return `Bob 正在整理书架上的书籍`;
+    }
+    
+    formatResearchEvent(event) {
+        const desc = event.description || '';
+        const topic = event.topic || '文学';
+        return `Bob 正在研究 ${topic} 相关内容`;
+    }
+    
+    formatBookRecommendationEvent(event) {
+        const desc = event.description || '';
+        return `Bob 正在为顾客推荐合适的书籍`;
+    }
+    
+    formatReadingEvent(event) {
+        const desc = event.description || '';
+        const material = event.material || '书籍';
+        return `Bob 正在阅读 ${material}`;
+    }
+    
+    formatCreatingEvent(event) {
+        const desc = event.description || '';
+        const creationType = event.creation_type || '内容';
+        return `正在创作 ${creationType}`;
+    }
+    
+    formatNetworkingEvent(event) {
+        const desc = event.description || '';
+        return `Charlie 正在建立职业人脉关系`;
+    }
+    
+    formatMeetingEvent(event) {
+        const desc = event.description || '';
+        const meetingType = event.meeting_type || '团队会议';
+        return `Charlie 正在参加 ${meetingType}`;
+    }
+    
+    formatLunchBreakEvent(event) {
+        const desc = event.description || '';
+        return `Charlie 正在享受午休时光`;
+    }
+    
+    formatExerciseEvent(event) {
+        const desc = event.description || '';
+        const exerciseType = event.exercise_type || '运动';
+        return `Charlie 正在进行 ${exerciseType} 锻炼`;
+    }
+    
+    formatSkillLearningEvent(event) {
+        const desc = event.description || '';
+        const skill = event.skill || '职业技能';
+        return `Charlie 正在学习 ${skill}`;
+    }
+    
+    formatTownExplorationEvent(event) {
+        const desc = event.description || '';
+        return `Charlie 正在探索小镇的新地方`;
     }
     
     translateEventDescription(description) {
-        // 简单的事件描述翻译
-        return description
-            .replace(/moved from/g, '从')
-            .replace(/to/g, '移动到')
-            .replace(/started conversation with/g, '开始与')
-            .replace(/conversation/g, '对话')
-            .replace(/coffee_shop/g, '咖啡店')
-            .replace(/bookstore/g, '书店')
-            .replace(/office/g, '办公室')
-            .replace(/house/g, '住宅')
-            .replace(/park/g, '公园');
+        if (!description) return '';
+        
+        // 基础翻译映射
+        const translations = {
+            // 动作
+            'moved from': '从',
+            'to': '到',
+            'started conversation with': '开始与',
+            'ended conversation with': '结束与',
+            'conversation': '的对话',
+            'is working at': '正在',
+            'is planning': '正在规划',
+            'decided to': '决定',
+            'thinking about': '正在思考',
+            'reflecting on': '正在反思',
+            
+            // 地点
+            'coffee_shop': '咖啡店',
+            'bookstore': '书店',
+            'office_1': '办公室1',
+            'office_2': '办公室2', 
+            'house_1': '住宅1',
+            'house_2': '住宅2',
+            'house_3': '住宅3',
+            'park': '公园',
+            'market': '市场',
+            'restaurant': '餐厅',
+            
+            // 角色
+            'alice': 'Alice',
+            'bob': 'Bob', 
+            'charlie': 'Charlie'
+        };
+        
+        let result = description;
+        
+        // 应用翻译
+        for (const [english, chinese] of Object.entries(translations)) {
+            const regex = new RegExp(english, 'gi');
+            result = result.replace(regex, chinese);
+        }
+        
+        return result;
     }
     
     selectAgent(agentId) {
         this.selectedAgent = this.selectedAgent === agentId ? null : agentId;
         this.updateAgentList();
-        this.redraw();
+        this.needsRedraw = true;
     }
     
     handleCanvasClick(event) {
@@ -337,6 +748,7 @@ class AITownVisualizer {
         
         // 如果没有点击智能体，取消选择
         this.selectedAgent = null;
+        this.needsRedraw = true;
         this.updateAgentList();
         this.redraw();
     }
@@ -364,19 +776,36 @@ class AITownVisualizer {
     }
     
     drawGrid() {
+        // 细网格
         this.ctx.strokeStyle = this.colors.grid;
-        this.ctx.lineWidth = 0.5;
+        this.ctx.lineWidth = 0.3;
         
-        // 垂直线
-        for (let x = 0; x <= 100; x += 10) {
+        for (let x = 0; x <= 100; x += 5) {
             this.ctx.beginPath();
             this.ctx.moveTo(x * this.scaleX, 0);
             this.ctx.lineTo(x * this.scaleX, this.canvas.height);
             this.ctx.stroke();
         }
         
-        // 水平线
-        for (let y = 0; y <= 100; y += 10) {
+        for (let y = 0; y <= 100; y += 5) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y * this.scaleY);
+            this.ctx.lineTo(this.canvas.width, y * this.scaleY);
+            this.ctx.stroke();
+        }
+        
+        // 粗网格
+        this.ctx.strokeStyle = this.colors.gridMajor;
+        this.ctx.lineWidth = 1;
+        
+        for (let x = 0; x <= 100; x += 20) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x * this.scaleX, 0);
+            this.ctx.lineTo(x * this.scaleX, this.canvas.height);
+            this.ctx.stroke();
+        }
+        
+        for (let y = 0; y <= 100; y += 20) {
             this.ctx.beginPath();
             this.ctx.moveTo(0, y * this.scaleY);
             this.ctx.lineTo(this.canvas.width, y * this.scaleY);
@@ -422,36 +851,156 @@ class AITownVisualizer {
             return;
         }
         
-        for (const [agentId, position] of Object.entries(this.worldState.agent_positions)) {
+        // 首先绘制轨迹（如果启用）
+        if (this.showTrails) {
+            this.drawAgentTrails();
+        }
+        
+        // 然后绘制智能体
+        for (const [agentId, targetPos] of Object.entries(this.worldState.agent_positions)) {
+            // 更新目标位置
+            this.targetPositions[agentId] = { x: targetPos.x, y: targetPos.y, area: targetPos.area };
+            
+            // 如果是第一次，直接设置当前位置
+            if (!this.agentPositions[agentId]) {
+                this.agentPositions[agentId] = { x: targetPos.x, y: targetPos.y, area: targetPos.area };
+            }
+            
+            // 使用当前动画位置绘制
+            const currentPos = this.agentPositions[agentId];
             const color = this.colors.agents[agentId] || '#333333';
             const isSelected = this.selectedAgent === agentId;
             
-            const x = position.x * this.scaleX;
-            const y = position.y * this.scaleY;
-            const radius = isSelected ? 8 : 6;
+            const x = currentPos.x * this.scaleX;
+            const y = currentPos.y * this.scaleY;
+            const baseRadius = 8;
+            const radius = isSelected ? baseRadius + 2 : baseRadius;
             
-            // 绘制智能体圆圈
+            // 绘制阴影
+            this.ctx.beginPath();
+            this.ctx.arc(x + 2, y + 2, radius, 0, 2 * Math.PI);
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            this.ctx.fill();
+            
+            // 绘制智能体主体
             this.ctx.beginPath();
             this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
             this.ctx.fillStyle = color;
             this.ctx.fill();
             
-            // 选中智能体的边框
-            if (isSelected) {
-                this.ctx.strokeStyle = '#FFD700';
+            // 绘制边框
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
+            this.ctx.strokeStyle = isSelected ? '#FFD700' : '#FFFFFF';
+            this.ctx.lineWidth = isSelected ? 3 : 2;
+            this.ctx.stroke();
+            
+            // 绘制方向指示器和移动效果
+            const dx = targetPos.x - currentPos.x;
+            const dy = targetPos.y - currentPos.y;
+            const isMoving = Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1;
+            
+            if (isMoving) {
+                const angle = Math.atan2(dy, dx);
+                
+                // 绘制移动方向箭头
+                const arrowLength = radius + 8;
+                const arrowX = x + Math.cos(angle) * arrowLength;
+                const arrowY = y + Math.sin(angle) * arrowLength;
+                
+                // 箭头主线
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, y);
+                this.ctx.lineTo(arrowX, arrowY);
+                this.ctx.strokeStyle = color;
                 this.ctx.lineWidth = 3;
+                this.ctx.stroke();
+                
+                // 箭头头部
+                const arrowHeadLength = 6;
+                const arrowHeadAngle = Math.PI / 6;
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(arrowX, arrowY);
+                this.ctx.lineTo(
+                    arrowX - arrowHeadLength * Math.cos(angle - arrowHeadAngle),
+                    arrowY - arrowHeadLength * Math.sin(angle - arrowHeadAngle)
+                );
+                this.ctx.moveTo(arrowX, arrowY);
+                this.ctx.lineTo(
+                    arrowX - arrowHeadLength * Math.cos(angle + arrowHeadAngle),
+                    arrowY - arrowHeadLength * Math.sin(angle + arrowHeadAngle)
+                );
+                this.ctx.stroke();
+                
+                // 添加移动光环效果
+                const time = Date.now() / 200;
+                const pulseRadius = radius + 3 + Math.sin(time) * 2;
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, pulseRadius, 0, 2 * Math.PI);
+                this.ctx.strokeStyle = `rgba(${parseInt(color.substr(1, 2), 16)}, ${parseInt(color.substr(3, 2), 16)}, ${parseInt(color.substr(5, 2), 16)}, 0.3)`;
+                this.ctx.lineWidth = 1;
                 this.ctx.stroke();
             }
             
-            // 绘制智能体名称
+            // 绘制智能体名称和状态
             this.ctx.fillStyle = '#333';
-            this.ctx.font = 'bold 11px Microsoft YaHei';
+            this.ctx.font = 'bold 12px Microsoft YaHei';
             this.ctx.textAlign = 'center';
-            this.ctx.fillText(
-                agentId.charAt(0).toUpperCase() + agentId.slice(1),
-                x,
-                y - radius - 5
-            );
+            
+            const name = agentId.charAt(0).toUpperCase() + agentId.slice(1);
+            this.ctx.fillText(name, x, y - radius - 8);
+            
+            // 显示当前区域
+            if (currentPos.area) {
+                this.ctx.font = '10px Microsoft YaHei';
+                this.ctx.fillStyle = '#666';
+                this.ctx.fillText(
+                    this.getAreaDisplayName(currentPos.area),
+                    x, y + radius + 15
+                );
+            }
+        }
+    }
+    
+    drawAgentTrails() {
+        if (!this.positionHistory) return;
+        
+        const now = Date.now();
+        
+        for (const [agentId, history] of Object.entries(this.positionHistory)) {
+            if (history.length < 2) continue;
+            
+            const baseColor = this.colors.agents[agentId] || '#333333';
+            
+            // 绘制渐变轨迹
+            for (let i = 1; i < history.length; i++) {
+                const prevPos = history[i - 1];
+                const currentPos = history[i];
+                
+                // 计算透明度（基于时间和位置）
+                const age = now - currentPos.timestamp;
+                const fadeRatio = Math.max(0, 1 - age / this.trailFadeTime);
+                const positionRatio = i / history.length;
+                const alpha = fadeRatio * positionRatio * 0.6;
+                
+                if (alpha > 0.05) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(prevPos.x * this.scaleX, prevPos.y * this.scaleY);
+                    this.ctx.lineTo(currentPos.x * this.scaleX, currentPos.y * this.scaleY);
+                    
+                    // 根据透明度设置颜色
+                    const r = parseInt(baseColor.substr(1, 2), 16);
+                    const g = parseInt(baseColor.substr(3, 2), 16);
+                    const b = parseInt(baseColor.substr(5, 2), 16);
+                    this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                    
+                    // 线宽也随着时间变化
+                    this.ctx.lineWidth = Math.max(1, 4 * positionRatio);
+                    this.ctx.lineCap = 'round';
+                    this.ctx.stroke();
+                }
+            }
         }
     }
     
@@ -486,6 +1035,105 @@ class AITownVisualizer {
         lines.forEach((line, index) => {
             this.ctx.fillText(line, panelX + 10, panelY + 20 + index * 18);
         });
+    }
+    
+    startAnimationLoop() {
+        const animate = () => {
+            this.updateAnimations();
+            
+            // 性能优化：仅在需要时重绘
+            if (this.needsRedraw) {
+                this.redraw();
+                this.needsRedraw = false;
+            }
+            
+            this.animationFrame = requestAnimationFrame(animate);
+        };
+        animate();
+    }
+    
+    updateAnimations() {
+        const now = Date.now();
+        const deltaTime = (now - this.lastUpdateTime) / 1000; // 转换为秒
+        this.lastUpdateTime = now;
+        
+        let hasMovement = false;
+        
+        // 更新智能体位置动画
+        for (const agentId in this.targetPositions) {
+            if (!this.agentPositions[agentId]) {
+                this.agentPositions[agentId] = { ...this.targetPositions[agentId] };
+                this.needsRedraw = true;
+                continue;
+            }
+            
+            const current = this.agentPositions[agentId];
+            const target = this.targetPositions[agentId];
+            
+            // 计算移动距离
+            const dx = target.x - current.x;
+            const dy = target.y - current.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 0.1) {
+                // 平滑移动 - 使用更自然的速度
+                const moveSpeed = Math.max(this.animationSpeed * deltaTime, distance * 0.08);
+                const moveDistance = Math.min(distance, moveSpeed);
+                const ratio = moveDistance / distance;
+                
+                current.x += dx * ratio;
+                current.y += dy * ratio;
+                
+                // 更新位置历史
+                this.updatePositionHistory(agentId, current.x, current.y);
+                hasMovement = true;
+                this.needsRedraw = true;
+            } else if (Math.abs(current.x - target.x) > 0.01 || Math.abs(current.y - target.y) > 0.01) {
+                // 足够接近，直接设置为目标位置
+                current.x = target.x;
+                current.y = target.y;
+                current.area = target.area;
+                this.needsRedraw = true;
+            }
+        }
+        
+        // 清理过期的轨迹点
+        this.cleanupTrails(now);
+        
+        // 如果有世界状态更新但没有动画，也需要重绘
+        if (this.worldState && !hasMovement) {
+            this.needsRedraw = true;
+        }
+    }
+    
+    updatePositionHistory(agentId, x, y) {
+        if (!this.positionHistory[agentId]) {
+            this.positionHistory[agentId] = [];
+        }
+        
+        const history = this.positionHistory[agentId];
+        const lastPos = history[history.length - 1];
+        
+        // 只有当位置变化足够大时才记录
+        if (!lastPos || Math.abs(lastPos.x - x) > 0.8 || Math.abs(lastPos.y - y) > 0.8) {
+            history.push({ x, y, timestamp: Date.now() });
+            
+            // 限制历史长度
+            if (history.length > this.maxHistoryLength) {
+                history.shift();
+            }
+        }
+    }
+    
+    cleanupTrails(now) {
+        for (const agentId in this.positionHistory) {
+            const history = this.positionHistory[agentId];
+            // 移除过期的轨迹点
+            while (history.length > 0 && now - history[0].timestamp > this.trailFadeTime) {
+                history.shift();
+                this.needsRedraw = true;
+            }
+        }
     }
 }
 

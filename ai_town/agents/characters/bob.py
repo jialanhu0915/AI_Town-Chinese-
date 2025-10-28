@@ -57,11 +57,91 @@ class Bob(LLMEnhancedAgent):
         self.use_llm_for_reflection = llm_config["use_llm_for_reflection"]
         
         # Bob 特定的属性
-        self.favorite_topics = ['philosophy', 'history', 'science', 'literature', 'poetry']
-        self.book_recommendations = []
-        self.literary_knowledge = 9.2  # 1-10 scale
-        self.current_reading = "Marcus Aurelius' Meditations"
+        self.favorite_books = ['philosophy', 'history', 'science', 'literature']
+        self.book_recommendations = {}
+        self.reading_preferences = 8.0  # 1-10 scale
+        self.customer_interactions = []
     
+    def _define_available_behaviors(self) -> List[str]:
+        """Bob 可用的行为类型"""
+        return [
+            'move', 'talk', 'work',  # 基础行为
+            'read', 'organize_books', 'help_customer',  # 书店相关
+            'reflect', 'research', 'recommend_book',  # 知识相关
+            'eat', 'sleep'  # 生理需求
+        ]
+    
+    def _define_behavior_preferences(self) -> Dict[str, float]:
+        """Bob 的行为偏好"""
+        preferences = super()._define_behavior_preferences()
+        
+        # Bob 作为内向的书店老板的特殊偏好
+        preferences.update({
+            'read': 0.8,  # 非常喜欢阅读
+            'organize_books': 0.7,  # 喜欢整理书籍
+            'help_customer': 0.6,  # 乐于帮助顾客
+            'research': 0.7,  # 喜欢研究
+            'recommend_book': 0.8,  # 喜欢推荐书籍
+            'socialize': 0.2,  # 不太喜欢一般社交
+            'reflect': 0.9,  # 非常喜欢深度思考
+            'work': 0.8  # 工作认真
+        })
+        
+        return preferences
+    
+    def _define_action_durations(self) -> Dict[str, float]:
+        """Bob 的行为持续时间"""
+        durations = super()._define_action_durations()
+        
+        # Bob 的专门行为时间
+        durations.update({
+            'read': 35.0,  # 读书时间较长
+            'organize_books': 20.0,
+            'help_customer': 15.0,
+            'research': 45.0,  # 研究时间很长
+            'recommend_book': 10.0,
+            'reflect': 25.0  # 深度思考时间较长
+        })
+        
+        return durations
+    
+    async def _execute_organize_books_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行整理书籍行动"""
+        return {
+            'type': 'organizing_books',
+            'agent_id': self.agent_id,
+            'activity': 'arranging_shelves',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_help_customer_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行帮助顾客行动"""
+        return {
+            'type': 'customer_service',
+            'agent_id': self.agent_id,
+            'activity': 'helping_customer_find_book',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_research_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行研究行动"""
+        topic = self.current_action.get('topic', 'literary_analysis')
+        return {
+            'type': 'researching',
+            'agent_id': self.agent_id,
+            'topic': topic,
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_recommend_book_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行推荐书籍行动"""
+        return {
+            'type': 'book_recommendation',
+            'agent_id': self.agent_id,
+            'activity': 'suggesting_reading_material',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+        
     async def _generate_insights(self, memories):
         """生成Bob的洞察"""
         insights = []

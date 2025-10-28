@@ -103,9 +103,54 @@ class BaseAgent(ABC):
         self.perception_radius = 5.0
         self.conversation_radius = 2.0
         
+        # 个性化行为配置
+        self.available_behaviors = self._define_available_behaviors()
+        self.behavior_preferences = self._define_behavior_preferences()
+        self.action_durations = self._define_action_durations()
+        
         # 创建初始记忆
         self._initialize_memories()
     
+    def _define_available_behaviors(self) -> List[str]:
+        """定义此智能体可用的行为类型（子类可重写）"""
+        return ['move', 'talk', 'work', 'eat', 'sleep']
+    
+    def _define_behavior_preferences(self) -> Dict[str, float]:
+        """基于性格定义行为偏好权重（子类可重写）"""
+        preferences = {
+            'move': 0.3,
+            'talk': self.personality.get('extraversion', 0.5),
+            'work': self.personality.get('conscientiousness', 0.7),
+            'eat': 0.2,
+            'sleep': 0.1,
+            'socialize': self.personality.get('extraversion', 0.5) * 0.8,
+            'reflect': self.personality.get('openness', 0.5),
+            'read': self.personality.get('openness', 0.5),
+            'create': self.personality.get('openness', 0.5)
+        }
+        
+        # 内向者更喜欢独处活动
+        if self.personality.get('extraversion', 0.5) < 0.5:
+            preferences['socialize'] *= 0.3
+            preferences['reflect'] *= 1.5
+            preferences['read'] = preferences.get('read', 0.5) * 1.3
+        
+        return preferences
+    
+    def _define_action_durations(self) -> Dict[str, float]:
+        """定义各种行为的持续时间（子类可重写）"""
+        return {
+            'move': 2.0,
+            'talk': 5.0,
+            'work': 30.0,
+            'eat': 15.0,
+            'sleep': 480.0,  # 8小时
+            'socialize': 20.0,
+            'reflect': 10.0,
+            'read': 25.0,
+            'create': 40.0
+        }
+        
     def _initialize_memories(self):
         """初始化基础记忆"""
         initial_memory = Observation(
@@ -257,17 +302,8 @@ class BaseAgent(ABC):
         # 基于行动类型和时间判断
         elapsed_minutes = (GameTime.now() - self.action_start_time).total_seconds() / 60
         
-        action_durations = {
-            'move': 2.0,
-            'talk': 5.0,
-            'work': 30.0,
-            'eat': 15.0,
-            'sleep': 480.0,  # 8小时
-            'socialize': 20.0
-        }
-        
         action_type = self.current_action.get('type', 'unknown')
-        expected_duration = action_durations.get(action_type, 10.0)
+        expected_duration = self.action_durations.get(action_type, 10.0)
         
         return elapsed_minutes >= expected_duration
     
@@ -297,16 +333,46 @@ class BaseAgent(ABC):
         
         action_type = self.current_action.get('type')
         
-        if action_type == 'move':
-            return await self._execute_move_action()
-        elif action_type == 'talk':
-            return await self._execute_talk_action(world_state)
-        elif action_type == 'work':
-            return await self._execute_work_action()
-        elif action_type == 'socialize':
-            return await self._execute_socialize_action(world_state)
+        # 检查该行为是否在可用行为列表中
+        if action_type not in self.available_behaviors:
+            # 如果不可用，降级到默认行为
+            return await self._execute_default_action(action_type, world_state)
+        
+        # 使用动态方法调用执行行为
+        method_name = f'_execute_{action_type}_action'
+        if hasattr(self, method_name):
+            method = getattr(self, method_name)
+            if asyncio.iscoroutinefunction(method):
+                return await method(world_state)
+            else:
+                return method(world_state)
         else:
-            return {'type': action_type or 'idle', 'agent_id': self.agent_id}
+            # 如果没有专门的执行方法，使用通用执行
+            return await self._execute_generic_action(action_type, world_state)
+    
+    async def _execute_default_action(self, attempted_action: str, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """当尝试的行为不可用时执行默认行为"""
+        # 根据性格选择替代行为
+        if attempted_action == 'socialize':
+            # 内向者用独处活动替代社交
+            if self.personality.get('extraversion', 0.5) < 0.5:
+                return await self._execute_reflect_action(world_state)
+            else:
+                return await self._execute_talk_action(world_state)
+        
+        # 默认返回工作或移动
+        if 'work' in self.available_behaviors:
+            return await self._execute_work_action(world_state)
+        else:
+            return await self._execute_move_action(world_state)
+    
+    async def _execute_generic_action(self, action_type: str, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行通用行为"""
+        return {
+            'type': action_type,
+            'agent_id': self.agent_id,
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
     
     async def _execute_move_action(self) -> Dict[str, Any]:
         """执行移动行动"""
@@ -366,6 +432,39 @@ class BaseAgent(ABC):
             'type': 'socialize', 
             'agent_id': self.agent_id,
             'activity': activity,
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_reflect_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行反思行动"""
+        reflection_topic = self.current_action.get('topic', 'recent_experiences')
+        
+        return {
+            'type': 'reflection',
+            'agent_id': self.agent_id,
+            'topic': reflection_topic,
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_read_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行阅读行动"""
+        material = self.current_action.get('material', 'book')
+        
+        return {
+            'type': 'reading',
+            'agent_id': self.agent_id,
+            'material': material,
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_create_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行创作行动"""
+        creation_type = self.current_action.get('creation_type', 'writing')
+        
+        return {
+            'type': 'creating',
+            'agent_id': self.agent_id,
+            'creation_type': creation_type,
             'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
         }
     

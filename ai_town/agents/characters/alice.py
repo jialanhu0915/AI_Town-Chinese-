@@ -64,6 +64,95 @@ class Alice(LLMEnhancedAgent):
         self.favorite_topics = ['coffee', 'books', 'travel', 'food', 'community']
         self.regular_customers = []
         self.coffee_knowledge = 8.5  # 1-10 scale
+    
+    def _define_available_behaviors(self) -> List[str]:
+        """Alice 可用的行为类型"""
+        return [
+            'move', 'talk', 'work',  # 基础行为
+            'socialize', 'greet_customer', 'make_coffee',  # 咖啡店相关
+            'chat_with_regulars', 'recommend_drink', 'clean_shop',  # 服务相关
+            'eat', 'sleep', 'take_break'  # 生理需求
+        ]
+    
+    def _define_behavior_preferences(self) -> Dict[str, float]:
+        """Alice 的行为偏好"""
+        preferences = super()._define_behavior_preferences()
+        
+        # Alice 作为外向的咖啡店老板的特殊偏好
+        preferences.update({
+            'socialize': 0.9,  # 非常喜欢社交
+            'greet_customer': 0.8,  # 喜欢迎接顾客
+            'make_coffee': 0.7,  # 喜欢制作咖啡
+            'chat_with_regulars': 0.9,  # 喜欢与常客聊天
+            'recommend_drink': 0.8,  # 喜欢推荐饮品
+            'clean_shop': 0.6,  # 保持店铺整洁
+            'reflect': 0.4,  # 不太喜欢独自思考
+            'work': 0.7  # 工作认真
+        })
+        
+        return preferences
+    
+    def _define_action_durations(self) -> Dict[str, float]:
+        """Alice 的行为持续时间"""
+        durations = super()._define_action_durations()
+        
+        # Alice 的专门行为时间
+        durations.update({
+            'greet_customer': 3.0,  # 快速热情问候
+            'make_coffee': 8.0,  # 制作咖啡
+            'chat_with_regulars': 12.0,  # 与常客聊天
+            'recommend_drink': 5.0,  # 推荐饮品
+            'clean_shop': 15.0,  # 清洁店铺
+            'take_break': 10.0  # 短暂休息
+        })
+        
+        return durations
+    
+    async def _execute_greet_customer_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行迎接顾客行动"""
+        return {
+            'type': 'customer_greeting',
+            'agent_id': self.agent_id,
+            'activity': 'welcoming_customers',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_make_coffee_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行制作咖啡行动"""
+        coffee_type = self.current_action.get('coffee_type', 'espresso')
+        return {
+            'type': 'coffee_making',
+            'agent_id': self.agent_id,
+            'coffee_type': coffee_type,
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_chat_with_regulars_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行与常客聊天行动"""
+        return {
+            'type': 'friendly_chat',
+            'agent_id': self.agent_id,
+            'activity': 'chatting_with_regular_customers',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_recommend_drink_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行推荐饮品行动"""
+        return {
+            'type': 'drink_recommendation',
+            'agent_id': self.agent_id,
+            'activity': 'suggesting_beverages',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_clean_shop_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行清洁店铺行动"""
+        return {
+            'type': 'shop_maintenance',
+            'agent_id': self.agent_id,
+            'activity': 'cleaning_coffee_shop',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
         
     async def _generate_insights(self, memories: List) -> List[str]:
         """生成 Alice 特有的洞察"""

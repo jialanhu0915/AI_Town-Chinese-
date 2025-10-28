@@ -58,10 +58,116 @@ class Charlie(LLMEnhancedAgent):
         self.use_llm_for_reflection = llm_config["use_llm_for_reflection"]
         
         # Charlie 特定的属性
-        self.adaptation_level = 0.3  # 对新环境的适应程度
-        self.work_stress = 0.4       # 工作压力水平
-        self.social_network_size = 1 # 已建立的社交关系数量
+        self.work_projects = []
+        self.networking_contacts = []
+        self.stress_level = 0.3  # 0-1 scale
+        self.work_life_balance = 0.7  # 重视工作生活平衡
     
+    def _define_available_behaviors(self) -> List[str]:
+        """Charlie 可用的行为类型"""
+        return [
+            'move', 'talk', 'work',  # 基础行为
+            'socialize', 'network', 'attend_meeting',  # 社交和职场
+            'take_lunch_break', 'commute', 'exercise',  # 生活平衡
+            'learn_skill', 'relax', 'explore_town',  # 个人发展
+            'eat', 'sleep'  # 生理需求
+        ]
+    
+    def _define_behavior_preferences(self) -> Dict[str, float]:
+        """Charlie 的行为偏好"""
+        preferences = super()._define_behavior_preferences()
+        
+        # Charlie 作为上班族的特殊偏好
+        preferences.update({
+            'work': 0.8,  # 工作认真
+            'socialize': 0.7,  # 喜欢社交
+            'network': 0.6,  # 建立人脉
+            'attend_meeting': 0.5,  # 参加会议
+            'take_lunch_break': 0.7,  # 重视午休
+            'exercise': 0.6,  # 保持健康
+            'learn_skill': 0.7,  # 学习新技能
+            'relax': 0.6,  # 放松休息
+            'explore_town': 0.5,  # 探索新环境
+            'reflect': 0.5  # 适度思考
+        })
+        
+        return preferences
+    
+    def _define_action_durations(self) -> Dict[str, float]:
+        """Charlie 的行为持续时间"""
+        durations = super()._define_action_durations()
+        
+        # Charlie 的专门行为时间
+        durations.update({
+            'network': 18.0,  # 建立人脉需要时间
+            'attend_meeting': 25.0,  # 会议时间
+            'take_lunch_break': 20.0,  # 午休时间
+            'commute': 12.0,  # 通勤时间
+            'exercise': 30.0,  # 锻炼时间
+            'learn_skill': 40.0,  # 学习技能
+            'relax': 15.0,  # 放松时间
+            'explore_town': 35.0  # 探索小镇
+        })
+        
+        return durations
+    
+    async def _execute_network_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行建立人脉行动"""
+        return {
+            'type': 'networking',
+            'agent_id': self.agent_id,
+            'activity': 'building_professional_connections',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_attend_meeting_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行参加会议行动"""
+        meeting_type = self.current_action.get('meeting_type', 'team_meeting')
+        return {
+            'type': 'meeting_attendance',
+            'agent_id': self.agent_id,
+            'meeting_type': meeting_type,
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_take_lunch_break_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行午休行动"""
+        return {
+            'type': 'lunch_break',
+            'agent_id': self.agent_id,
+            'activity': 'taking_midday_rest',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_exercise_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行锻炼行动"""
+        exercise_type = self.current_action.get('exercise_type', 'walking')
+        return {
+            'type': 'exercising',
+            'agent_id': self.agent_id,
+            'exercise_type': exercise_type,
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_learn_skill_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行学习技能行动"""
+        skill = self.current_action.get('skill', 'professional_development')
+        return {
+            'type': 'skill_learning',
+            'agent_id': self.agent_id,
+            'skill': skill,
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+    
+    async def _execute_explore_town_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """执行探索小镇行动"""
+        return {
+            'type': 'town_exploration',
+            'agent_id': self.agent_id,
+            'activity': 'discovering_local_attractions',
+            'position': {'x': self.position.x, 'y': self.position.y, 'area': self.position.area}
+        }
+        
     async def _generate_insights(self, memories):
         """生成Charlie的洞察"""
         insights = []

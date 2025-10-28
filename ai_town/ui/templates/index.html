@@ -183,22 +183,105 @@
         }
         
         .events-list {
-            max-height: 200px;
+            max-height: 300px;
             overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+        
+        .events-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .events-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        .events-list::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .events-list::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
         }
         
         .event-item {
-            padding: 0.5rem;
-            margin-bottom: 0.5rem;
-            background: #f8f9fa;
-            border-left: 3px solid #667eea;
-            border-radius: 0 5px 5px 0;
+            padding: 0.8rem;
+            margin-bottom: 0.8rem;
+            background: #ffffff;
+            border: 1px solid #e9ecef;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
             font-size: 0.9rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .event-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .event-item.movement { border-left-color: #28a745; }
+        .event-item.conversation { border-left-color: #17a2b8; }
+        .event-item.interaction { border-left-color: #ffc107; }
+        .event-item.planning { border-left-color: #6f42c1; }
+        .event-item.reflection { border-left-color: #e83e8c; }
+        .event-item.work { border-left-color: #fd7e14; }
+        .event-item.social { border-left-color: #20c997; }
+        
+        .event-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .event-icon {
+            font-size: 1.1rem;
         }
         
         .event-time {
-            color: #666;
+            color: #6c757d;
+            font-size: 0.75rem;
+            font-weight: normal;
+            background: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 12px;
+            margin-left: auto;
+        }
+        
+        .event-type {
+            color: #495057;
             font-size: 0.8rem;
+            font-weight: normal;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+        }
+        
+        .event-description {
+            color: #495057;
+            line-height: 1.4;
+            margin-bottom: 0.3rem;
+        }
+        
+        .event-participants {
+            color: #6c757d;
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+        
+        .event-duration {
+            color: #6c757d;
+            font-size: 0.75rem;
+            background: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 10px;
+            display: inline-block;
+            margin-top: 0.3rem;
         }
         
         .connection-status {
@@ -257,6 +340,20 @@
             <button id="startBtn" class="btn">▶️ 开始模拟</button>
             <button id="pauseBtn" class="btn">⏸️ 暂停</button>
             <button id="resetBtn" class="btn">🔄 重置</button>
+            
+            <!-- 动画控制 -->
+            <div class="animation-controls">
+                <label style="color: white; font-size: 0.9rem;">
+                    🎬 动画速度:
+                    <input type="range" id="animationSpeed" min="10" max="150" value="50" 
+                           style="margin-left: 0.5rem; width: 80px;">
+                </label>
+                <label style="color: white; font-size: 0.9rem; margin-left: 1rem;">
+                    🔍 显示轨迹:
+                    <input type="checkbox" id="showTrails" checked 
+                           style="margin-left: 0.5rem;">
+                </label>
+            </div>
         </div>
     </div>
     
