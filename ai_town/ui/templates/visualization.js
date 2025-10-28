@@ -50,10 +50,27 @@ class AITownVisualizer {
             }
         };
         
+        // 事件元数据缓存
+        this.eventMetadata = {};
+        this.loadEventMetadata();
+        
         this.initEventListeners();
         this.setupCanvas();
         this.connectWebSocket();
         this.startAnimationLoop();
+    }
+    
+    async loadEventMetadata() {
+        // 加载事件元数据
+        try {
+            const response = await fetch('/api/event-metadata');
+            this.eventMetadata = await response.json();
+            console.log('事件元数据已加载:', this.eventMetadata);
+        } catch (error) {
+            console.error('加载事件元数据失败:', error);
+            // 使用空对象作为fallback
+            this.eventMetadata = {};
+        }
     }
     
     initEventListeners() {
@@ -318,17 +335,20 @@ class AITownVisualizer {
         let html = '';
         
         events.reverse().forEach(event => {
-            const eventDisplay = this.formatEventDisplay(event);
+            // 如果后端已经提供了格式化信息，直接使用；否则使用本地格式化
+            const eventDisplay = event.icon ? event : this.formatEventDisplay(event);
+            
             html += `
-                <div class="event-item ${eventDisplay.type}">
+                <div class="event-item ${eventDisplay.category || eventDisplay.type}" style="border-left-color: ${eventDisplay.color || '#667eea'}">
                     <div class="event-header">
                         <span class="event-icon">${eventDisplay.icon}</span>
                         <span class="event-time">${this.formatEventTime(event.timestamp)}</span>
-                        <span class="event-type">${eventDisplay.typeLabel}</span>
+                        <span class="event-type">${eventDisplay.typeLabel || eventDisplay.displayName}</span>
                     </div>
                     <div class="event-description">${eventDisplay.description}</div>
                     ${eventDisplay.participants ? `<div class="event-participants">参与者: ${eventDisplay.participants}</div>` : ''}
                     ${event.duration ? `<div class="event-duration">持续: ${this.formatDuration(event.duration)}</div>` : ''}
+                    ${eventDisplay.tags ? `<div class="event-tags">${eventDisplay.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}</div>` : ''}
                 </div>
             `;
         });
@@ -359,154 +379,62 @@ class AITownVisualizer {
     
     formatEventDisplay(event) {
         const eventType = event.event_type || 'unknown';
-        let icon = '📝';
-        let typeLabel = '事件';
-        let description = event.description || '';
-        let participants = '';
         
-        // 格式化参与者
-        if (event.participants && Array.isArray(event.participants)) {
-            participants = event.participants.map(p => this.getAgentDisplayName(p)).join(', ');
+        // 尝试从事件元数据获取显示信息
+        const metadata = this.eventMetadata[eventType];
+        if (metadata) {
+            return {
+                type: eventType,
+                icon: metadata.icon,
+                typeLabel: metadata.displayName,
+                description: event.description || `${this.getAgentDisplayName(event.participants?.[0] || '')} ${metadata.displayName}`,
+                participants: this.formatParticipants(event.participants),
+                color: metadata.color,
+                category: metadata.category,
+                tags: metadata.tags
+            };
         }
         
-        // 根据事件类型设置图标和标签
-        switch (eventType) {
-            case 'movement':
-                icon = '🚶';
-                typeLabel = '移动';
-                description = this.formatMovementEvent(event);
-                break;
-            case 'conversation':
-                icon = '💬';
-                typeLabel = '对话';
-                description = this.formatConversationEvent(event);
-                break;
-            case 'interaction':
-                icon = '🤝';
-                typeLabel = '互动';
-                description = this.formatInteractionEvent(event);
-                break;
-            case 'planning':
-                icon = '🤔';
-                typeLabel = '规划';
-                description = this.formatPlanningEvent(event);
-                break;
-            case 'reflection':
-                icon = '💭';
-                typeLabel = '思考';
-                description = this.formatReflectionEvent(event);
-                break;
-            case 'work':
-                icon = '💼';
-                typeLabel = '工作';
-                description = this.formatWorkEvent(event);
-                break;
-            case 'social':
-            case 'socialize':
-                icon = '👥';
-                typeLabel = '社交';
-                description = this.formatSocialEvent(event);
-                break;
-            // Alice 相关行为
-            case 'customer_greeting':
-                icon = '👋';
-                typeLabel = '迎客';
-                description = this.formatCustomerServiceEvent(event);
-                break;
-            case 'coffee_making':
-                icon = '☕';
-                typeLabel = '制作咖啡';
-                description = this.formatCoffeeEvent(event);
-                break;
-            case 'friendly_chat':
-                icon = '😊';
-                typeLabel = '闲聊';
-                description = this.formatFriendlyChatEvent(event);
-                break;
-            case 'drink_recommendation':
-                icon = '🥤';
-                typeLabel = '推荐饮品';
-                description = this.formatRecommendationEvent(event);
-                break;
-            case 'shop_maintenance':
-                icon = '🧹';
-                typeLabel = '店铺维护';
-                description = this.formatMaintenanceEvent(event);
-                break;
-            // Bob 相关行为
-            case 'organizing_books':
-                icon = '📚';
-                typeLabel = '整理书籍';
-                description = this.formatBookOrganizingEvent(event);
-                break;
-            case 'customer_service':
-                icon = '🤝';
-                typeLabel = '客户服务';
-                description = this.formatCustomerServiceEvent(event);
-                break;
-            case 'researching':
-                icon = '🔍';
-                typeLabel = '研究';
-                description = this.formatResearchEvent(event);
-                break;
-            case 'book_recommendation':
-                icon = '📖';
-                typeLabel = '推荐书籍';
-                description = this.formatBookRecommendationEvent(event);
-                break;
-            case 'reading':
-                icon = '📘';
-                typeLabel = '阅读';
-                description = this.formatReadingEvent(event);
-                break;
-            case 'creating':
-                icon = '✍️';
-                typeLabel = '创作';
-                description = this.formatCreatingEvent(event);
-                break;
-            // Charlie 相关行为
-            case 'networking':
-                icon = '🤝';
-                typeLabel = '建立人脉';
-                description = this.formatNetworkingEvent(event);
-                break;
-            case 'meeting_attendance':
-                icon = '👔';
-                typeLabel = '参加会议';
-                description = this.formatMeetingEvent(event);
-                break;
-            case 'lunch_break':
-                icon = '🍽️';
-                typeLabel = '午休';
-                description = this.formatLunchBreakEvent(event);
-                break;
-            case 'exercising':
-                icon = '💪';
-                typeLabel = '锻炼';
-                description = this.formatExerciseEvent(event);
-                break;
-            case 'skill_learning':
-                icon = '📚';
-                typeLabel = '学习技能';
-                description = this.formatSkillLearningEvent(event);
-                break;
-            case 'town_exploration':
-                icon = '🗺️';
-                typeLabel = '探索小镇';
-                description = this.formatTownExplorationEvent(event);
-                break;
-            default:
-                description = this.translateEventDescription(event.description || '');
-                break;
-        }
-        
+        // Fallback: 使用简单的默认格式化
         return {
             type: eventType,
-            icon,
-            typeLabel,
-            description,
-            participants
+            icon: this.getDefaultIcon(eventType),
+            typeLabel: this.getDefaultTypeLabel(eventType),
+            description: event.description || '发生了某个事件',
+            participants: this.formatParticipants(event.participants),
+            color: '#667eea',
+            category: 'unknown',
+            tags: []
         };
+    }
+    
+    getDefaultIcon(eventType) {
+        const iconMap = {
+            'movement': '🚶',
+            'conversation': '�',
+            'work': '💼',
+            'social': '👥',
+            'unknown': '❓'
+        };
+        return iconMap[eventType] || '📝';
+    }
+    
+    getDefaultTypeLabel(eventType) {
+        const labelMap = {
+            'movement': '移动',
+            'conversation': '对话',
+            'work': '工作',
+            'social': '社交',
+            'unknown': '事件'
+        };
+        return labelMap[eventType] || '事件';
+    }
+    
+    formatParticipants(participants) {
+        if (!participants || !Array.isArray(participants)) {
+            return '';
+        }
+        return participants.map(p => this.getAgentDisplayName(p)).join(', ');
     }
     
     formatMovementEvent(event) {

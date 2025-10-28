@@ -14,6 +14,7 @@ from enum import Enum
 from ai_town.agents.memory.memory_stream import MemoryStream
 from ai_town.agents.planning.planner import ActionPlanner
 from ai_town.core.time_manager import GameTime
+from ai_town.events.event_registry import event_registry
 
 
 class AgentState(Enum):
@@ -139,17 +140,30 @@ class BaseAgent(ABC):
     
     def _define_action_durations(self) -> Dict[str, float]:
         """定义各种行为的持续时间（子类可重写）"""
-        return {
-            'move': 2.0,
-            'talk': 5.0,
-            'work': 30.0,
-            'eat': 15.0,
-            'sleep': 480.0,  # 8小时
-            'socialize': 20.0,
-            'reflect': 10.0,
-            'read': 25.0,
-            'create': 40.0
-        }
+        durations = {}
+        
+        # 从事件注册表获取默认持续时间
+        for behavior in self.available_behaviors:
+            metadata = event_registry.get_event_metadata(behavior)
+            if metadata and hasattr(metadata, 'duration_range'):
+                # 使用范围的中间值作为默认时间
+                min_dur, max_dur = metadata.duration_range
+                durations[behavior] = (min_dur + max_dur) / 2
+            else:
+                # 使用传统的默认值
+                durations[behavior] = {
+                    'move': 2.0,
+                    'talk': 5.0,
+                    'work': 30.0,
+                    'eat': 15.0,
+                    'sleep': 480.0,  # 8小时
+                    'socialize': 20.0,
+                    'reflect': 10.0,
+                    'read': 25.0,
+                    'create': 40.0
+                }.get(behavior, 10.0)
+        
+        return durations
         
     def _initialize_memories(self):
         """初始化基础记忆"""

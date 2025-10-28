@@ -22,6 +22,7 @@ sys.path.append(str(project_root))
 from ai_town.core.world import World
 from ai_town.core.time_manager import GameTime
 from ai_town.agents.agent_manager import agent_manager
+from ai_town.events.event_formatter import event_formatter
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -124,7 +125,8 @@ class VisualizationManager:
     
     def _serialize_event(self, event):
         """序列化事件对象"""
-        return {
+        # 使用统一的事件格式化器
+        raw_event_data = {
             'id': event.id,
             'timestamp': event.timestamp.isoformat(),
             'event_type': event.event_type,
@@ -132,6 +134,12 @@ class VisualizationManager:
             'participants': event.participants,
             'duration': event.duration
         }
+        
+        # 添加格式化后的显示信息
+        display_info = event_formatter.format_event_display(raw_event_data)
+        raw_event_data.update(display_info)
+        
+        return raw_event_data
     
     async def start_simulation(self):
         """开始模拟"""
@@ -225,6 +233,12 @@ class VisualizationManager:
 
 # 初始化全局管理器实例
 manager = VisualizationManager()
+
+
+@app.get("/api/event-metadata")
+async def get_event_metadata():
+    """获取事件元数据用于前端显示"""
+    return event_formatter.get_all_event_types_for_frontend()
 
 
 @app.get("/", response_class=HTMLResponse)
