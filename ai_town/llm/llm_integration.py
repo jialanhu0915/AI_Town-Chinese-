@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LLMResponse:
     """LLM 响应数据结构"""
+
     content: str
     reasoning: Optional[str] = None
     confidence: float = 1.0
@@ -27,12 +28,12 @@ class LLMResponse:
 
 class LLMProvider(ABC):
     """LLM 提供者抽象基类"""
-    
+
     @abstractmethod
     async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
         """生成文本响应"""
         pass
-    
+
     @abstractmethod
     async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
         """对话模式"""
@@ -41,12 +42,12 @@ class LLMProvider(ABC):
 
 class OllamaProvider(LLMProvider):
     """Ollama 本地 LLM 提供者"""
-    
+
     def __init__(self, model_name: str = "tinyllama", base_url: str = "http://localhost:11434"):
         self.model_name = model_name
         self.base_url = base_url
         self.client = httpx.AsyncClient(timeout=60.0)
-    
+
     async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
         """使用 Ollama 生成响应"""
         try:
@@ -56,28 +57,24 @@ class OllamaProvider(LLMProvider):
                     "model": self.model_name,
                     "prompt": prompt,
                     "stream": False,
-                    "options": {
-                        "temperature": 0.7,
-                        "top_p": 0.9,
-                        "max_tokens": 500
-                    }
-                }
+                    "options": {"temperature": 0.7, "top_p": 0.9, "max_tokens": 500},
+                },
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 return LLMResponse(
                     content=result.get("response", "").strip(),
-                    metadata={"model": self.model_name, "provider": "ollama"}
+                    metadata={"model": self.model_name, "provider": "ollama"},
                 )
             else:
                 logger.error(f"Ollama API error: {response.status_code}")
                 return LLMResponse(content="[LLM Error: Unable to generate response]")
-                
+
         except Exception as e:
             logger.error(f"Ollama connection error: {e}")
             return LLMResponse(content="[LLM Error: Connection failed]")
-    
+
     async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
         """对话模式"""
         # 将消息转换为单个 prompt
@@ -91,27 +88,26 @@ class OllamaProvider(LLMProvider):
                 prompt += f"User: {content}\n\n"
             elif role == "assistant":
                 prompt += f"Assistant: {content}\n\n"
-        
+
         prompt += "Assistant: "
         return await self.generate(prompt)
 
 
 class OpenAIProvider(LLMProvider):
     """OpenAI API 提供者"""
-    
+
     def __init__(self, api_key: str = None, model_name: str = "gpt-3.5-turbo"):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.model_name = model_name
         self.client = httpx.AsyncClient(
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            timeout=60.0
+            headers={"Authorization": f"Bearer {self.api_key}"}, timeout=60.0
         )
-    
+
     async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
         """使用 OpenAI API 生成响应"""
         messages = [{"role": "user", "content": prompt}]
         return await self.chat(messages)
-    
+
     async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
         """对话模式"""
         try:
@@ -121,21 +117,21 @@ class OpenAIProvider(LLMProvider):
                     "model": self.model_name,
                     "messages": messages,
                     "temperature": 0.7,
-                    "max_tokens": 500
-                }
+                    "max_tokens": 500,
+                },
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 content = result["choices"][0]["message"]["content"]
                 return LLMResponse(
                     content=content.strip(),
-                    metadata={"model": self.model_name, "provider": "openai"}
+                    metadata={"model": self.model_name, "provider": "openai"},
                 )
             else:
                 logger.error(f"OpenAI API error: {response.status_code}")
                 return LLMResponse(content="[LLM Error: API request failed]")
-                
+
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
             return LLMResponse(content="[LLM Error: Connection failed]")
@@ -143,22 +139,22 @@ class OpenAIProvider(LLMProvider):
 
 class MockLLMProvider(LLMProvider):
     """模拟 LLM 提供者（用于测试和演示）"""
-    
+
     def __init__(self):
         self.responses = {
             "greeting": ["你好！很高兴见到你。", "嗨！今天过得怎么样？", "欢迎来到小镇！"],
             "work": ["我正在努力工作。", "工作很充实。", "今天的任务进展顺利。"],
             "social": ["和朋友聊天总是很愉快。", "我喜欢认识新朋友。", "社交让生活更有趣。"],
-            "default": ["这很有趣。", "我需要仔细想想。", "让我考虑一下。"]
+            "default": ["这很有趣。", "我需要仔细想想。", "让我考虑一下。"],
         }
-    
+
     async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
         """生成模拟响应"""
         import random
 
         # 简单的关键词匹配
         prompt_lower = prompt.lower()
-        
+
         if any(word in prompt_lower for word in ["你好", "hello", "嗨", "hi"]):
             response_type = "greeting"
         elif any(word in prompt_lower for word in ["工作", "work", "job"]):
@@ -167,18 +163,18 @@ class MockLLMProvider(LLMProvider):
             response_type = "social"
         else:
             response_type = "default"
-        
+
         content = random.choice(self.responses[response_type])
-        
+
         # 模拟延迟
         await asyncio.sleep(0.1)
-        
+
         return LLMResponse(
             content=content,
             confidence=0.8,
-            metadata={"provider": "mock", "response_type": response_type}
+            metadata={"provider": "mock", "response_type": response_type},
         )
-    
+
     async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
         """对话模式"""
         if messages:
@@ -189,37 +185,39 @@ class MockLLMProvider(LLMProvider):
 
 class LLMManager:
     """LLM 管理器 - 管理多个 LLM 提供者"""
-    
+
     def __init__(self):
         self.providers: Dict[str, LLMProvider] = {}
         self.default_provider = None
         self.fallback_providers: List[str] = []
-    
+
     def register_provider(self, name: str, provider: LLMProvider, is_default: bool = False):
         """注册 LLM 提供者"""
         self.providers[name] = provider
         if is_default or self.default_provider is None:
             self.default_provider = name
-    
+
     def set_fallback_chain(self, provider_names: List[str]):
         """设置故障转移链"""
         self.fallback_providers = provider_names
-    
-    async def generate(self, prompt: str, provider_name: str = None, context: Dict[str, Any] = None) -> LLMResponse:
+
+    async def generate(
+        self, prompt: str, provider_name: str = None, context: Dict[str, Any] = None
+    ) -> LLMResponse:
         """生成响应（支持故障转移）"""
         providers_to_try = []
-        
+
         if provider_name and provider_name in self.providers:
             providers_to_try.append(provider_name)
-        
+
         if self.default_provider:
             providers_to_try.append(self.default_provider)
-        
+
         providers_to_try.extend(self.fallback_providers)
-        
+
         # 去重并保持顺序
         providers_to_try = list(dict.fromkeys(providers_to_try))
-        
+
         for provider_name in providers_to_try:
             if provider_name in self.providers:
                 try:
@@ -229,23 +227,23 @@ class LLMManager:
                 except Exception as e:
                     logger.warning(f"Provider {provider_name} failed: {e}")
                     continue
-        
+
         # 所有提供者都失败了
         return LLMResponse(content="[所有 LLM 提供者都不可用]")
-    
+
     async def chat(self, messages: List[Dict[str, str]], provider_name: str = None) -> LLMResponse:
         """对话模式（支持故障转移）"""
         providers_to_try = []
-        
+
         if provider_name and provider_name in self.providers:
             providers_to_try.append(provider_name)
-        
+
         if self.default_provider:
             providers_to_try.append(self.default_provider)
-        
+
         providers_to_try.extend(self.fallback_providers)
         providers_to_try = list(dict.fromkeys(providers_to_try))
-        
+
         for provider_name in providers_to_try:
             if provider_name in self.providers:
                 try:
@@ -255,9 +253,9 @@ class LLMManager:
                 except Exception as e:
                     logger.warning(f"Provider {provider_name} failed: {e}")
                     continue
-        
+
         return LLMResponse(content="[所有 LLM 提供者都不可用]")
-    
+
     def get_available_providers(self) -> List[str]:
         """获取可用的提供者列表"""
         return list(self.providers.keys())
@@ -274,11 +272,11 @@ def setup_default_llm_providers():
 
     # 加载配置文件
     load_env_file()
-    
+
     # 注册模拟提供者（始终可用）
     mock_provider = MockLLMProvider()
     llm_manager.register_provider("mock", mock_provider)
-    
+
     # 根据配置注册 Ollama
     ollama_config = LLM_CONFIG.get("ollama", {})
     if ollama_config.get("enabled", True):
@@ -286,30 +284,30 @@ def setup_default_llm_providers():
             model_name = ollama_config.get("model_name", "deepseek-r1:1.5b")
             base_url = ollama_config.get("base_url", "http://localhost:11434")
             ollama_provider = OllamaProvider(model_name=model_name, base_url=base_url)
-            
+
             is_default = LLM_CONFIG.get("default_provider") == "ollama"
             llm_manager.register_provider("ollama", ollama_provider, is_default=is_default)
             logger.info(f"Ollama provider registered with model: {model_name}")
         except Exception as e:
             logger.warning(f"Failed to register Ollama provider: {e}")
-    
+
     # 根据配置注册 OpenAI
     openai_config = LLM_CONFIG.get("openai", {})
     if openai_config.get("enabled", False) and openai_config.get("api_key"):
         try:
             model_name = openai_config.get("model_name", "gpt-3.5-turbo")
             openai_provider = OpenAIProvider(openai_config["api_key"], model_name)
-            
+
             is_default = LLM_CONFIG.get("default_provider") == "openai"
             llm_manager.register_provider("openai", openai_provider, is_default=is_default)
             logger.info(f"OpenAI provider registered with model: {model_name}")
         except Exception as e:
             logger.warning(f"Failed to register OpenAI provider: {e}")
-    
+
     # 设置故障转移链
     fallback_chain = LLM_CONFIG.get("fallback_chain", ["ollama", "openai", "mock"])
     llm_manager.set_fallback_chain(fallback_chain)
-    
+
     logger.info(f"Available LLM providers: {llm_manager.get_available_providers()}")
     logger.info(f"Default provider: {LLM_CONFIG.get('default_provider', 'ollama')}")
     logger.info(f"Fallback chain: {' -> '.join(fallback_chain)}")

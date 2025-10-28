@@ -14,10 +14,10 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # CI环境配置
-if os.getenv('CI') == 'true':
+if os.getenv("CI") == "true":
     # 在CI环境中强制使用mock LLM
-    os.environ.setdefault('AI_TOWN_LLM_PROVIDER', 'mock')
-    os.environ.setdefault('SKIP_OLLAMA_TESTS', 'true')
+    os.environ.setdefault("AI_TOWN_LLM_PROVIDER", "mock")
+    os.environ.setdefault("SKIP_OLLAMA_TESTS", "true")
 
 
 @pytest.fixture(scope="session")
@@ -35,24 +35,24 @@ def event_loop():
 def sample_agent_data():
     """提供测试用的智能体数据"""
     return {
-        'alice': {
-            'agent_id': 'alice',
-            'name': 'Alice',
-            'position': {'x': 25, 'y': 25, 'area': 'coffee_shop'},
-            'occupation': 'coffee_shop_owner'
+        "alice": {
+            "agent_id": "alice",
+            "name": "Alice",
+            "position": {"x": 25, "y": 25, "area": "coffee_shop"},
+            "occupation": "coffee_shop_owner",
         },
-        'bob': {
-            'agent_id': 'bob', 
-            'name': 'Bob',
-            'position': {'x': 35, 'y': 20, 'area': 'bookstore'},
-            'occupation': 'bookstore_owner'
+        "bob": {
+            "agent_id": "bob",
+            "name": "Bob",
+            "position": {"x": 35, "y": 20, "area": "bookstore"},
+            "occupation": "bookstore_owner",
         },
-        'charlie': {
-            'agent_id': 'charlie',
-            'name': 'Charlie', 
-            'position': {'x': 60, 'y': 30, 'area': 'office_1'},
-            'occupation': 'office_worker'
-        }
+        "charlie": {
+            "agent_id": "charlie",
+            "name": "Charlie",
+            "position": {"x": 60, "y": 30, "area": "office_1"},
+            "occupation": "office_worker",
+        },
     }
 
 
@@ -61,23 +61,23 @@ def sample_event_data():
     """提供测试用的事件数据"""
     return [
         {
-            'event_type': 'coffee_making',
-            'description': 'Alice is making espresso',
-            'participants': ['alice'],
-            'coffee_type': 'espresso',
-            'timestamp': '2024-01-01T10:00:00'
+            "event_type": "coffee_making",
+            "description": "Alice is making espresso",
+            "participants": ["alice"],
+            "coffee_type": "espresso",
+            "timestamp": "2024-01-01T10:00:00",
         },
         {
-            'event_type': 'movement',
-            'description': 'alice moved from coffee_shop to park',
-            'participants': ['alice'],
-            'timestamp': '2024-01-01T10:05:00'
+            "event_type": "movement",
+            "description": "alice moved from coffee_shop to park",
+            "participants": ["alice"],
+            "timestamp": "2024-01-01T10:05:00",
         },
         {
-            'event_type': 'reading',
-            'description': 'Bob is reading a philosophy book',
-            'participants': ['bob'],
-            'material': 'philosophy book',
-            'timestamp': '2024-01-01T10:10:00'
-        }
+            "event_type": "reading",
+            "description": "Bob is reading a philosophy book",
+            "participants": ["bob"],
+            "material": "philosophy book",
+            "timestamp": "2024-01-01T10:10:00",
+        },
     ]

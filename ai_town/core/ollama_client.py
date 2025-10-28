@@ -19,15 +19,20 @@ class OllamaClient:
     - OLLAMA_HTTP_TIMEOUT   调整 HTTP 检测/请求的超时时间（秒，默认 0.5）
     """
 
-    def __init__(self, model: str = "llama2", http_url: str = "http://localhost:11434", cli_cmd: str = "ollama"):
+    def __init__(
+        self,
+        model: str = "llama2",
+        http_url: str = "http://localhost:11434",
+        cli_cmd: str = "ollama",
+    ):
         self.model = model
-        self.http_url = http_url.rstrip('/')
+        self.http_url = http_url.rstrip("/")
         self.cli_cmd = cli_cmd
         self._http_available: Optional[bool] = None
         # 从环境读取配置
-        self.force_cli = os.environ.get('OLLAMA_FORCE_CLI', '').lower() in ('1', 'true', 'yes')
+        self.force_cli = os.environ.get("OLLAMA_FORCE_CLI", "").lower() in ("1", "true", "yes")
         try:
-            self.http_timeout = float(os.environ.get('OLLAMA_HTTP_TIMEOUT', '0.5'))
+            self.http_timeout = float(os.environ.get("OLLAMA_HTTP_TIMEOUT", "0.5"))
         except Exception:
             self.http_timeout = 0.5
 
@@ -49,7 +54,14 @@ class OllamaClient:
         return self._http_available
 
     # ----------------- Chat / Generate -----------------
-    def chat_http(self, prompt: str, system: Optional[str] = None, history: Optional[list] = None, temperature: float = 0.0, timeout: int = None) -> str:
+    def chat_http(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        history: Optional[list] = None,
+        temperature: float = 0.0,
+        timeout: int = None,
+    ) -> str:
         if timeout is None:
             timeout = max(1.0, self.http_timeout)
         payload = {
@@ -78,9 +90,13 @@ class OllamaClient:
                     if key in body and isinstance(body[key], str):
                         return body[key]
                 return json.dumps(body)
-        raise RuntimeError("没有可用的 Ollama HTTP 接口（尝试 /api/generate 和 /generate）或请求失败")
+        raise RuntimeError(
+            "没有可用的 Ollama HTTP 接口（尝试 /api/generate 和 /generate）或请求失败"
+        )
 
-    def chat_cli(self, prompt: str, system: Optional[str] = None, history: Optional[list] = None) -> str:
+    def chat_cli(
+        self, prompt: str, system: Optional[str] = None, history: Optional[list] = None
+    ) -> str:
         if not self._has_cli():
             raise RuntimeError("Ollama CLI 未在 PATH 中找到")
         cmd = [self.cli_cmd, "generate", self.model, "--prompt", prompt]
@@ -92,21 +108,34 @@ class OllamaClient:
         except Exception as e:
             raise RuntimeError(f"调用 Ollama CLI 出错: {e}") from e
 
-    def chat(self, prompt: str, system: Optional[str] = None, history: Optional[list] = None, temperature: float = 0.0, timeout: int = None) -> str:
+    def chat(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        history: Optional[list] = None,
+        temperature: float = 0.0,
+        timeout: int = None,
+    ) -> str:
         # 优先使用 HTTP（除非 force_cli）
         try:
             if not self.force_cli and self._check_http(timeout=self.http_timeout):
-                return self.chat_http(prompt, system=system, history=history, temperature=temperature, timeout=timeout)
+                return self.chat_http(
+                    prompt, system=system, history=history, temperature=temperature, timeout=timeout
+                )
         except Exception:
             pass
         # 回退到 CLI
         try:
             return self.chat_cli(prompt, system=system, history=history)
         except Exception as e:
-            raise RuntimeError("HTTP 和 CLI 调用均失败，请检查 Ollama 是否在本机启动或 ollama CLI 是否安装并在 PATH 中") from e
+            raise RuntimeError(
+                "HTTP 和 CLI 调用均失败，请检查 Ollama 是否在本机启动或 ollama CLI 是否安装并在 PATH 中"
+            ) from e
 
     # ----------------- Embeddings -----------------
-    def embeddings_http(self, inputs: Union[str, List[str]], timeout: int = None) -> List[List[float]]:
+    def embeddings_http(
+        self, inputs: Union[str, List[str]], timeout: int = None
+    ) -> List[List[float]]:
         if timeout is None:
             timeout = max(1.0, self.http_timeout)
         if isinstance(inputs, str):
@@ -117,7 +146,11 @@ class OllamaClient:
             "model": self.model,
             "input": payload_input,
         }
-        candidates = [f"{self.http_url}/api/embeddings", f"{self.http_url}/embeddings", f"{self.http_url}/api/embedding"]
+        candidates = [
+            f"{self.http_url}/api/embeddings",
+            f"{self.http_url}/embeddings",
+            f"{self.http_url}/api/embedding",
+        ]
         for url in candidates:
             try:
                 r = httpx.post(url, json=payload, timeout=timeout)
@@ -130,23 +163,25 @@ class OllamaClient:
             except Exception:
                 continue
             if isinstance(body, dict):
-                if 'embeddings' in body and isinstance(body['embeddings'], list):
-                    return body['embeddings']
-                if 'data' in body and isinstance(body['data'], list):
+                if "embeddings" in body and isinstance(body["embeddings"], list):
+                    return body["embeddings"]
+                if "data" in body and isinstance(body["data"], list):
                     out = []
-                    for item in body['data']:
-                        if isinstance(item, dict) and 'embedding' in item:
-                            out.append(item['embedding'])
+                    for item in body["data"]:
+                        if isinstance(item, dict) and "embedding" in item:
+                            out.append(item["embedding"])
                     if out:
                         return out
-                if 'embedding' in body and isinstance(body['embedding'], list):
-                    return [body['embedding']]
+                if "embedding" in body and isinstance(body["embedding"], list):
+                    return [body["embedding"]]
             if isinstance(body, list):
                 if len(body) > 0 and isinstance(body[0], list):
                     return body
                 if len(body) > 0 and isinstance(body[0], (int, float)):
                     return [body]
-        raise RuntimeError("没有可用的 Ollama embedding HTTP 接口或返回格式不支持（尝试 /api/embeddings, /embeddings）")
+        raise RuntimeError(
+            "没有可用的 Ollama embedding HTTP 接口或返回格式不支持（尝试 /api/embeddings, /embeddings）"
+        )
 
     def embeddings_cli(self, inputs: Union[str, List[str]]) -> List[List[float]]:
         if not self._has_cli():
@@ -164,7 +199,9 @@ class OllamaClient:
                     raise RuntimeError("无法解析 Ollama CLI embed 输出")
             else:
                 cmd = [self.cli_cmd, "embed", self.model, "--json"]
-                proc = subprocess.run(cmd, input=json.dumps(inputs), capture_output=True, text=True, check=True)
+                proc = subprocess.run(
+                    cmd, input=json.dumps(inputs), capture_output=True, text=True, check=True
+                )
                 body = proc.stdout
                 parsed = json.loads(body)
                 return parsed

@@ -18,6 +18,7 @@ def test_core_imports():
     try:
         from ai_town.events.event_formatter import event_formatter
         from ai_town.events.event_registry import event_registry
+
         assert event_registry is not None
         assert event_formatter is not None
         print("✅ 核心事件系统导入成功")
@@ -32,7 +33,7 @@ def test_agent_imports():
         from ai_town.agents.characters.alice import Alice
         from ai_town.agents.characters.bob import Bob
         from ai_town.agents.characters.charlie import Charlie
-        
+
         assert BaseAgent is not None
         assert Position is not None
         assert AgentState is not None
@@ -48,6 +49,7 @@ def test_web_server_imports():
     """测试Web服务器模块导入"""
     try:
         from ai_town.ui.visualization_server import VisualizationManager, app
+
         assert app is not None
         assert VisualizationManager is not None
         print("✅ Web服务器模块导入成功")
@@ -63,18 +65,18 @@ def test_event_system_integration():
     # 测试事件注册
     all_events = event_registry.get_all_events()
     assert len(all_events) > 0, "应该有注册的事件类型"
-    
+
     # 测试事件格式化
     test_event = {
-        'event_type': 'movement',
-        'description': 'test movement',
-        'participants': ['alice']
+        "event_type": "movement",
+        "description": "test movement",
+        "participants": ["alice"],
     }
-    
+
     formatted = event_formatter.format_event_display(test_event)
-    assert 'icon' in formatted, "格式化后应该包含图标"
-    assert 'typeLabel' in formatted, "格式化后应该包含类型标签"
-    
+    assert "icon" in formatted, "格式化后应该包含图标"
+    assert "typeLabel" in formatted, "格式化后应该包含类型标签"
+
     print("✅ 事件系统集成测试通过")
 
 
@@ -88,15 +90,15 @@ def test_agent_creation():
     alice = Alice()
     bob = Bob()
     charlie = Charlie()
-    
+
     assert alice.agent_id == "alice"
-    assert bob.agent_id == "bob"  
+    assert bob.agent_id == "bob"
     assert charlie.agent_id == "charlie"
-    
+
     assert alice.occupation == "coffee_shop_owner"
     assert bob.occupation == "bookstore_owner"
     assert charlie.occupation == "office_worker"
-    
+
     print("✅ 智能体创建测试通过")
 
 
@@ -104,48 +106,48 @@ def test_behavior_system():
     """测试行为系统"""
     from ai_town.agents.characters.alice import Alice
     from ai_town.agents.characters.bob import Bob
-    
+
     alice = Alice()
     bob = Bob()
-    
+
     # 测试Alice的行为配置
     alice_behaviors = alice.available_behaviors
-    assert 'coffee_making' in alice_behaviors, "Alice应该有制作咖啡的行为"
-    assert 'greet_customer' in alice_behaviors, "Alice应该有迎接顾客的行为"
-    
+    assert "coffee_making" in alice_behaviors, "Alice应该有制作咖啡的行为"
+    assert "greet_customer" in alice_behaviors, "Alice应该有迎接顾客的行为"
+
     # 测试Bob的行为配置
     bob_behaviors = bob.available_behaviors
-    assert 'read' in bob_behaviors, "Bob应该有阅读行为"
-    assert 'organizing_books' in bob_behaviors, "Bob应该有整理书籍的行为"
-    
+    assert "read" in bob_behaviors, "Bob应该有阅读行为"
+    assert "organizing_books" in bob_behaviors, "Bob应该有整理书籍的行为"
+
     # 测试行为偏好
     alice_preferences = alice.behavior_preferences
     bob_preferences = bob.behavior_preferences
-    
+
     # Alice更外向，应该更喜欢社交
     # Bob更内向，应该更喜欢阅读和反思
-    assert alice_preferences.get('socialize', 0) > bob_preferences.get('socialize', 0)
-    assert bob_preferences.get('read', 0) > alice_preferences.get('read', 0)
-    
+    assert alice_preferences.get("socialize", 0) > bob_preferences.get("socialize", 0)
+    assert bob_preferences.get("read", 0) > alice_preferences.get("read", 0)
+
     print("✅ 行为系统测试通过")
 
 
 if __name__ == "__main__":
     print("🚀 运行核心功能测试")
     print("=" * 50)
-    
+
     tests = [
         test_core_imports,
-        test_agent_imports, 
+        test_agent_imports,
         test_web_server_imports,
         test_event_system_integration,
         test_agent_creation,
-        test_behavior_system
+        test_behavior_system,
     ]
-    
+
     passed = 0
     failed = 0
-    
+
     for test in tests:
         try:
             test()
@@ -153,10 +155,10 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"❌ {test.__name__} 失败: {e}")
             failed += 1
-    
+
     print("=" * 50)
     print(f"📊 测试结果: {passed} 通过, {failed} 失败")
-    
+
     if failed == 0:
         print("🎉 所有核心功能测试通过！")
         exit(0)

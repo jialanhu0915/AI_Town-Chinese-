@@ -7,4 +7,4 @@ from .alice import Alice
 from .bob import Bob
 from .charlie import Charlie
 
-__all__ = ['Alice', 'Bob', 'Charlie']
+__all__ = ["Alice", "Bob", "Charlie"]

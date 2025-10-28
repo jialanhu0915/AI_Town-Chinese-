@@ -15,36 +15,36 @@ from ai_town.llm.llm_integration import ask_llm, chat_with_llm, llm_manager
 
 class LLMEnhancedAgent(BaseAgent):
     """LLM 增强的智能体基类"""
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         # LLM 相关配置
-        self.preferred_llm_provider = kwargs.get('llm_provider', 'mock')
+        self.preferred_llm_provider = kwargs.get("llm_provider", "mock")
         self.use_llm_for_planning = True
         self.use_llm_for_conversation = True
         self.use_llm_for_reflection = True
-        
+
         # 对话历史
         self.conversation_history: Dict[str, List[Dict[str, str]]] = {}
-        
+
         # 当前思考状态
         self.current_thoughts = ""
         self.current_goals = []
-    
+
     async def _generate_insights(self, memories: List[Observation]) -> List[str]:
         """使用 LLM 生成基于记忆的洞察"""
         if not self.use_llm_for_reflection or not memories:
             return await self._fallback_generate_insights(memories)
-        
+
         # 准备记忆摘要
         memory_summaries = []
         for memory in memories[-10:]:  # 最近10条记忆
             summary = f"[{memory.timestamp.strftime('%H:%M')}] {memory.description}"
             memory_summaries.append(summary)
-        
+
         memories_text = "\n".join(memory_summaries)
-        
+
         # 构建反思提示
         reflection_prompt = f"""
 你是 {self.name}，{self.age}岁，职业是{self.occupation}。
@@ -76,56 +76,56 @@ class LLMEnhancedAgent(BaseAgent):
 
         try:
             response = await ask_llm(
-                reflection_prompt, 
+                reflection_prompt,
                 provider=self.preferred_llm_provider,
-                context={'agent': self.name, 'task': 'reflection'}
+                context={"agent": self.name, "task": "reflection"},
             )
-            
+
             # 解析洞察
-            insights = [line.strip() for line in response.split('\n') if line.strip()]
+            insights = [line.strip() for line in response.split("\n") if line.strip()]
             return insights[:3]  # 最多返回3个洞察
-            
+
         except Exception as e:
             print(f"LLM reflection failed for {self.name}: {e}")
             return await self._fallback_generate_insights(memories)
-    
+
     async def _fallback_generate_insights(self, memories: List[Observation]) -> List[str]:
         """回退到基于规则的洞察生成"""
         insights = []
-        
+
         # 简单的基于规则的洞察
         if len(memories) >= 5:
             insights.append(f"我注意到最近发生了很多事情，需要好好整理一下思绪。")
-        
+
         # 基于心情的洞察
         if self.mood > 0.5:
             insights.append("最近心情不错，感觉生活很充实。")
         elif self.mood < -0.5:
             insights.append("最近有些烦躁，可能需要调整一下节奏。")
-        
+
         # 基于能量的洞察
         if self.energy < 30:
             insights.append("感觉有些疲惫，需要好好休息一下。")
-        
+
         return insights[:2]
-    
+
     async def _decide_next_action(self) -> Dict[str, Any]:
         """使用 LLM 决定下一个行动"""
         if not self.use_llm_for_planning:
             return await self._fallback_decide_action()
-        
+
         # 获取当前情境信息
         current_time = GameTime.now()
         time_of_day = GameTime.get_time_of_day()
         recent_memories = self.memory.get_recent_memories(limit=5)
-        
+
         # 构建决策提示
         memory_context = ""
         if recent_memories:
-            memory_context = "最近的经历:\n" + "\n".join([
-                f"- {mem.description}" for mem in recent_memories
-            ])
-        
+            memory_context = "最近的经历:\n" + "\n".join(
+                [f"- {mem.description}" for mem in recent_memories]
+            )
+
         decision_prompt = f"""
 你是 {self.name}，{self.age}岁，职业是{self.occupation}。
 
@@ -171,51 +171,53 @@ class LLMEnhancedAgent(BaseAgent):
             response = await ask_llm(
                 decision_prompt,
                 provider=self.preferred_llm_provider,
-                context={'agent': self.name, 'task': 'decision_making'}
+                context={"agent": self.name, "task": "decision_making"},
             )
-            
+
             # 尝试解析JSON响应
             try:
                 action = json.loads(response.strip())
-                
+
                 # 验证必需字段
-                if 'type' in action and 'description' in action:
+                if "type" in action and "description" in action:
                     return action
                 else:
                     raise ValueError("Missing required fields in LLM response")
-                    
+
             except (json.JSONDecodeError, ValueError) as e:
                 print(f"Failed to parse LLM action for {self.name}: {e}")
                 print(f"Raw response: {response}")
                 return await self._fallback_decide_action()
-                
+
         except Exception as e:
             print(f"LLM decision making failed for {self.name}: {e}")
             return await self._fallback_decide_action()
-    
+
     async def _fallback_decide_action(self) -> Dict[str, Any]:
         """回退到基于规则的行动决策"""
         # 这里调用原来的简单决策逻辑
         # 子类可以重写这个方法
         return {
-            'type': 'idle',
-            'description': '静静地思考',
-            'reason': '没有特别想做的事情',
-            'duration': 5
+            "type": "idle",
+            "description": "静静地思考",
+            "reason": "没有特别想做的事情",
+            "duration": 5,
         }
-    
-    async def generate_conversation_response(self, speaker_name: str, message: str, context: Dict[str, Any] = None) -> str:
+
+    async def generate_conversation_response(
+        self, speaker_name: str, message: str, context: Dict[str, Any] = None
+    ) -> str:
         """使用 LLM 生成对话响应"""
         if not self.use_llm_for_conversation:
             return self._fallback_conversation_response(speaker_name, message)
-        
+
         # 获取与此人的对话历史
         conversation_key = f"{self.agent_id}-{speaker_name}"
         if conversation_key not in self.conversation_history:
             self.conversation_history[conversation_key] = []
-        
+
         history = self.conversation_history[conversation_key]
-        
+
         # 构建对话提示
         conversation_prompt = f"""
 你是 {self.name}，正在与 {speaker_name} 对话。
@@ -234,11 +236,11 @@ class LLMEnhancedAgent(BaseAgent):
 
 对话历史:
 """
-        
+
         # 添加对话历史
         for msg in history[-6:]:  # 最近6轮对话
             conversation_prompt += f"{msg['role']}: {msg['content']}\n"
-        
+
         conversation_prompt += f"\n{speaker_name}: {message}\n\n"
         conversation_prompt += f"""
 请生成 {self.name} 的回应。回应应该:
@@ -250,30 +252,30 @@ class LLMEnhancedAgent(BaseAgent):
 
 只返回对话内容，不需要其他格式或说明。
 """
-        
+
         try:
             response = await ask_llm(
                 conversation_prompt,
                 provider=self.preferred_llm_provider,
-                context={'agent': self.name, 'task': 'conversation'}
+                context={"agent": self.name, "task": "conversation"},
             )
-            
+
             # 更新对话历史
             history.append({"role": speaker_name, "content": message})
             history.append({"role": self.name, "content": response})
-            
+
             # 保持历史长度
             if len(history) > 20:
                 history = history[-20:]
-            
+
             self.conversation_history[conversation_key] = history
-            
+
             return response.strip()
-            
+
         except Exception as e:
             print(f"LLM conversation failed for {self.name}: {e}")
             return self._fallback_conversation_response(speaker_name, message)
-    
+
     def _fallback_conversation_response(self, speaker_name: str, message: str) -> str:
         """回退的对话响应"""
         responses = [
@@ -281,16 +283,17 @@ class LLMEnhancedAgent(BaseAgent):
             "这很有趣！",
             "你说得对。",
             "我也有同感。",
-            f"谢谢你告诉我这个，{speaker_name}。"
+            f"谢谢你告诉我这个，{speaker_name}。",
         ]
-        
+
         import random
+
         return random.choice(responses)
-    
+
     async def set_goals(self, goals: List[str]):
         """设置当前目标"""
         self.current_goals = goals
-        
+
         # 将目标记录为记忆
         goal_text = "我设定了新的目标: " + ", ".join(goals)
         goal_memory = Observation(
@@ -300,27 +303,29 @@ class LLMEnhancedAgent(BaseAgent):
             description=goal_text,
             location=self.position,
             importance=8.0,
-            metadata={'goals': goals}
+            metadata={"goals": goals},
         )
         self.memory.add_observation(goal_memory)
-    
+
     def get_current_thoughts(self) -> str:
         """获取当前思考内容"""
         return self.current_thoughts
-    
+
     def update_thoughts(self, thoughts: str):
         """更新当前思考"""
         self.current_thoughts = thoughts
-    
+
     def get_enhanced_status(self) -> Dict[str, Any]:
         """获取增强状态信息"""
         base_status = self.get_status()
-        base_status.update({
-            'llm_provider': self.preferred_llm_provider,
-            'current_thoughts': self.current_thoughts,
-            'current_goals': self.current_goals,
-            'conversation_partners': list(self.conversation_history.keys())
-        })
+        base_status.update(
+            {
+                "llm_provider": self.preferred_llm_provider,
+                "current_thoughts": self.current_thoughts,
+                "current_goals": self.current_goals,
+                "conversation_partners": list(self.conversation_history.keys()),
+            }
+        )
         return base_status
 
     async def _llm_decide_action(self, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -329,14 +334,18 @@ class LLMEnhancedAgent(BaseAgent):
 
         # 构建决策上下文
         personality_desc = f"你是{self.name}，{self.age}岁，{self.occupation}。{self.background}"
-        
+
         situation_desc = (
             f"当前时间: {context.get('current_time', '未知')}，"
             f"位置: {context.get('position', {}).get('area', '未知区域')}。"
         )
-        
-        memory_desc = "最近经历: " + "; ".join(context.get('recent_memories', [])) if context.get('recent_memories') else "暂无最近经历"
-        
+
+        memory_desc = (
+            "最近经历: " + "; ".join(context.get("recent_memories", []))
+            if context.get("recent_memories")
+            else "暂无最近经历"
+        )
+
         # 构建决策提示
         decision_prompt = f"""
 {personality_desc}
@@ -365,66 +374,58 @@ JSON响应："""
         try:
             # 调用 LLM
             llm_response = await ask_llm(decision_prompt, provider=self.preferred_llm_provider)
-            
+
             # 解析 LLM 响应
             import json
             import re
-            
+
             try:
                 # 清理响应文本
                 cleaned_response = llm_response.strip()
-                
+
                 # 移除 markdown 代码块标记
-                if '```json' in cleaned_response:
+                if "```json" in cleaned_response:
                     # 提取 ```json 和 ``` 之间的内容
-                    json_match = re.search(r'```json\s*\n(.*?)\n```', cleaned_response, re.DOTALL)
+                    json_match = re.search(r"```json\s*\n(.*?)\n```", cleaned_response, re.DOTALL)
                     if json_match:
                         cleaned_response = json_match.group(1)
-                elif '```' in cleaned_response:
+                elif "```" in cleaned_response:
                     # 提取 ``` 之间的内容
-                    json_match = re.search(r'```\s*\n(.*?)\n```', cleaned_response, re.DOTALL)
+                    json_match = re.search(r"```\s*\n(.*?)\n```", cleaned_response, re.DOTALL)
                     if json_match:
                         cleaned_response = json_match.group(1)
-                
+
                 # 如果响应包含多行，尝试找到 JSON 部分
-                lines = cleaned_response.split('\n')
+                lines = cleaned_response.split("\n")
                 for line in lines:
                     line = line.strip()
-                    if line.startswith('{') and line.endswith('}'):
+                    if line.startswith("{") and line.endswith("}"):
                         cleaned_response = line
                         break
-                
+
                 # 解析 JSON
                 decision = json.loads(cleaned_response)
                 return {
-                    'type': decision.get('type', 'think'),
-                    'description': decision.get('description', '思考当前情况'),
-                    'reason': decision.get('reason', '')
+                    "type": decision.get("type", "think"),
+                    "description": decision.get("description", "思考当前情况"),
+                    "reason": decision.get("reason", ""),
                 }
-                
+
             except (json.JSONDecodeError, AttributeError) as e:
                 print(f"JSON 解析失败: {e}, 原始响应: {llm_response[:100]}...")
                 # LLM 返回格式有误，返回默认行为
-                return {
-                    'type': 'think',
-                    'description': '思考当前情况',
-                    'reason': 'LLM响应解析失败'
-                }
-        
+                return {"type": "think", "description": "思考当前情况", "reason": "LLM响应解析失败"}
+
         except Exception as e:
             # LLM 调用失败
-            return {
-                'type': 'think',
-                'description': '思考当前情况',
-                'reason': f'LLM调用失败: {e}'
-            }
-    
+            return {"type": "think", "description": "思考当前情况", "reason": f"LLM调用失败: {e}"}
+
     async def _llm_start_conversation(self, other_agent_name: str, topic: str = "") -> str:
         """使用 LLM 开始对话"""
         from ai_town.llm.llm_integration import ask_llm
-        
+
         personality_desc = f"你是{self.name}，{self.age}岁，{self.occupation}。{self.background}"
-        
+
         conversation_prompt = f"""
 {personality_desc}
 
@@ -440,7 +441,7 @@ JSON响应："""
         except Exception as e:
             # 后备开场白
             return f"你好，{other_agent_name}！很高兴见到你。"
-    
+
     async def _llm_respond_to_conversation(self, other_agent_name: str, message: str) -> str:
         """使用 LLM 回应对话"""
         from ai_town.llm.llm_integration import chat_with_llm
@@ -448,47 +449,52 @@ JSON响应："""
         # 获取或初始化对话历史
         if other_agent_name not in self.conversation_history:
             self.conversation_history[other_agent_name] = []
-        
+
         conversation_history = self.conversation_history[other_agent_name]
-        
+
         # 构建对话上下文
         personality_desc = f"你是{self.name}，{self.age}岁，{self.occupation}。{self.background}"
-        
+
         messages = [
             {"role": "system", "content": personality_desc},
-            {"role": "system", "content": f"你正在和 {other_agent_name} 对话。请用1句话简短回应（不超过30字），保持你的性格特征。"}
+            {
+                "role": "system",
+                "content": f"你正在和 {other_agent_name} 对话。请用1句话简短回应（不超过30字），保持你的性格特征。",
+            },
         ]
-        
+
         # 添加对话历史（最近5轮）
         for msg in conversation_history[-10:]:
             messages.append(msg)
-        
+
         # 添加当前消息
         messages.append({"role": "user", "content": f"{other_agent_name}: {message}"})
-        
+
         try:
             response = await chat_with_llm(messages, provider=self.preferred_llm_provider)
-            
+
             # 清理响应格式
             cleaned_response = response.strip()
-            
+
             # 移除可能的角色名称前缀
             prefixes_to_remove = [f"{self.name}:", f"{self.name.lower()}:", "助手:", "AI:"]
             for prefix in prefixes_to_remove:
                 if cleaned_response.startswith(prefix):
-                    cleaned_response = cleaned_response[len(prefix):].strip()
-            
+                    cleaned_response = cleaned_response[len(prefix) :].strip()
+
             # 保存对话历史
-            conversation_history.append({"role": "user", "content": f"{other_agent_name}: {message}"})
+            conversation_history.append(
+                {"role": "user", "content": f"{other_agent_name}: {message}"}
+            )
             conversation_history.append({"role": "assistant", "content": cleaned_response})
-            
+
             # 限制对话历史长度
             if len(conversation_history) > 20:
                 conversation_history = conversation_history[-20:]
                 self.conversation_history[other_agent_name] = conversation_history
-            
+
             return cleaned_response
-            
+
         except Exception as e:
             # 后备回应
             return f"谢谢你告诉我这些，{other_agent_name}。"
