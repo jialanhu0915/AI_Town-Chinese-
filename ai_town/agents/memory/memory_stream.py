@@ -91,12 +91,24 @@ class MemoryStream:
         self.reflection_threshold = 150  # 累积重要性阈值
         self.importance_sum = 0.0
 
-        # 数据持久化路径
-        self.data_dir = f"ai_town/data/memories/{agent_id}"
-        os.makedirs(self.data_dir, exist_ok=True)
+        # 环境变量开关
+        # AI_TOWN_MEMORY_PERSIST: 是否持久化到磁盘（默认开启）
+        # AI_TOWN_MEMORY_LOAD: 是否从磁盘加载历史记忆（默认开启）
+        def _env_true(name: str, default: str = "1") -> bool:
+            return os.getenv(name, default).lower() in ("1", "true", "yes", "on")
 
-        # 加载已有记忆
-        self._load_memories()
+        self._persist_enabled = _env_true("AI_TOWN_MEMORY_PERSIST", "1")
+        self._load_enabled = _env_true("AI_TOWN_MEMORY_LOAD", "1")
+
+        # 数据持久化路径（仅在启用持久化时设置与创建）
+        self.data_dir = None
+        if self._persist_enabled:
+            self.data_dir = f"ai_town/data/memories/{agent_id}"
+            os.makedirs(self.data_dir, exist_ok=True)
+
+        # 加载已有记忆（仅当持久化与加载均启用时）
+        if self._persist_enabled and self._load_enabled:
+            self._load_memories()
 
     def add_observation(self, observation) -> str:
         """
@@ -334,6 +346,9 @@ class MemoryStream:
 
     def _save_memory(self, memory: Memory):
         """保存单条记忆到磁盘"""
+        # 如关闭持久化，直接返回
+        if not self._persist_enabled or not self.data_dir:
+            return
         filename = f"{memory.id}.json"
         filepath = os.path.join(self.data_dir, filename)
 
@@ -353,6 +368,9 @@ class MemoryStream:
 
     def _load_memories(self):
         """从磁盘加载记忆"""
+        # 如关闭持久化或加载，直接返回
+        if not self._persist_enabled or not self._load_enabled or not self.data_dir:
+            return
         if not os.path.exists(self.data_dir):
             return
 

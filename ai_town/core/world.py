@@ -74,6 +74,9 @@ class World:
             "uptime_start": GameTime.now(),
         }
 
+        # 自动交互冷却：记录两两智能体最近一次自动交互时间
+        self._last_auto_interaction: Dict[tuple, datetime] = {}
+
     def add_agent(self, agent: BaseAgent):
         """添加智能体到世界"""
         self.agents[agent.agent_id] = agent
@@ -177,15 +180,32 @@ class World:
 
         return step_results
 
+    def _to_event_id(self, action_type: str) -> str:
+        """
+        将动作类型标准化为事件ID，最少必要映射。
+        """
+        if not action_type:
+            return "unknown"
+        name = action_type.lower()
+        mapping = {"move": "movement", "talk": "conversation"}
+        return mapping.get(name, name)
+
     async def _process_agent_action(self, agent_id: str, action: Dict[str, Any]):
         """处理智能体的行动"""
         action_type = action.get("type")
+        event_id = self._to_event_id(action_type)
 
-        if action_type == "move":
+        if event_id == "movement":
+            # 确保传入类型为 movement
+            action["type"] = "movement"
             await self._process_movement(agent_id, action)
-        elif action_type == "talk":
+        elif event_id == "conversation":
+            # 确保传入类型为 conversation
+            action["type"] = "conversation"
             await self._process_talk(agent_id, action)
-        elif action_type in ["work", "socialize", "eat", "sleep"]:
+        else:
+            # 其余统一走通用活动处理
+            action["type"] = event_id
             await self._process_activity(agent_id, action)
 
     async def _process_movement(self, agent_id: str, action: Dict[str, Any]):
@@ -271,17 +291,20 @@ class World:
         if not agent:
             return
 
-        activity_type = action.get("type")
+        activity_type = action.get("type", "activity")
 
-        # 创建活动事件
+        # 合并动作中除通用字段外的参数到元数据，便于格式化器提取
+        extra_meta = {k: v for k, v in action.items() if k not in {"type", "agent_id", "position"}}
+
+        # 创建活动事件：使用具体动作名作为事件类型，便于统一事件元匹配
         activity_event = WorldEvent(
             id=str(uuid.uuid4()),
             timestamp=GameTime.now(),
-            event_type="activity",
+            event_type=activity_type,
             description=f"{agent.name} is {activity_type.replace('_', ' ')}",
             location=agent.position,
             participants=[agent_id],
-            metadata={"activity_type": activity_type},
+            metadata=extra_meta,
             duration=10,
         )
 
@@ -289,7 +312,6 @@ class World:
 
     async def _process_interactions(self):
         """处理智能体间的自动交互"""
-        # 检查所有智能体对，看是否有自动交互的机会
         agent_list = list(self.agents.values())
 
         for i, agent1 in enumerate(agent_list):
@@ -303,11 +325,18 @@ class World:
                     and agent2.state.value in ["idle", "socializing"]
                 ):
 
+                    # 成对冷却：十分钟内重复相同对话不再自动触发
+                    pair_key = tuple(sorted([agent1.agent_id, agent2.agent_id]))
+                    last = self._last_auto_interaction.get(pair_key)
+                    if last is not None and GameTime.minutes_since(last) < 10:
+                        continue
+
                     # 检查是否应该发生交互（基于性格等）
                     should_interact = self._should_agents_interact(agent1, agent2)
 
                     if should_interact:
                         await self._create_automatic_interaction(agent1, agent2)
+                        self._last_auto_interaction[pair_key] = GameTime.now()
 
     def _should_agents_interact(self, agent1: BaseAgent, agent2: BaseAgent) -> bool:
         """判断两个智能体是否应该自动交互"""
@@ -315,13 +344,15 @@ class World:
         agent1_social = agent1.personality.get("extraversion", 0.5)
         agent2_social = agent2.personality.get("extraversion", 0.5)
 
-        # 外向性高的智能体更容易发生交互
-        interaction_probability = (agent1_social + agent2_social) / 2
+        # 概率采用乘积（只要一方内向就显著降低），并总体降频
+        interaction_probability = agent1_social * agent2_social * 0.08
+        # 若任一方偏内向，再次衰减
+        if agent1_social < 0.5 or agent2_social < 0.5:
+            interaction_probability *= 0.5
 
-        # 随机判断
         import random
 
-        return random.random() < interaction_probability * 0.1  # 降低自动交互频率
+        return random.random() < interaction_probability
 
     async def _create_automatic_interaction(self, agent1: BaseAgent, agent2: BaseAgent):
         """创建自动交互"""

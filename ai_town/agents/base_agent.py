@@ -116,8 +116,20 @@ class BaseAgent(ABC):
         self._initialize_memories()
 
     def _define_available_behaviors(self) -> List[str]:
-        """定义此智能体可用的行为类型（子类可重写）"""
-        return ["move", "talk", "work", "eat", "sleep"]
+        """
+        定义此智能体可用的行为类型（子类可重写）
+        """
+        return [
+            "move",
+            "talk",
+            "work",
+            "eat",
+            "sleep",
+            "socialize",
+            "reflect",
+            "read",
+            "create",
+        ]
 
     def _define_behavior_preferences(self) -> Dict[str, float]:
         """基于性格定义行为偏好权重（子类可重写）"""
@@ -142,30 +154,21 @@ class BaseAgent(ABC):
         return preferences
 
     def _define_action_durations(self) -> Dict[str, float]:
-        """定义各种行为的持续时间（子类可重写）"""
+        """
+        定义各种行为的持续时间（子类可重写）
+        优先从统一事件元（EventRegistry）读取 duration_range，最少枚举。
+        """
         durations = {}
-
-        # 从事件注册表获取默认持续时间
         for behavior in self.available_behaviors:
-            metadata = event_registry.get_event_metadata(behavior)
+            event_id = self._to_event_id(behavior)
+            metadata = event_registry.get_event_metadata(event_id)
             if metadata and hasattr(metadata, "duration_range"):
-                # 使用范围的中间值作为默认时间
                 min_dur, max_dur = metadata.duration_range
                 durations[behavior] = (min_dur + max_dur) / 2
             else:
-                # 使用传统的默认值
-                durations[behavior] = {
-                    "move": 2.0,
-                    "talk": 5.0,
-                    "work": 30.0,
-                    "eat": 15.0,
-                    "sleep": 480.0,  # 8小时
-                    "socialize": 20.0,
-                    "reflect": 10.0,
-                    "read": 25.0,
-                    "create": 40.0,
-                }.get(behavior, 10.0)
-
+                # 兜底值，尽量减少显式枚举
+                defaults = {"movement": 2.0, "conversation": 5.0, "work": 30.0, "sleeping": 480.0}
+                durations[behavior] = defaults.get(event_id, 10.0)
         return durations
 
     def _initialize_memories(self):
@@ -179,6 +182,88 @@ class BaseAgent(ABC):
             importance=9.0,
         )
         self.memory.add_observation(initial_memory)
+
+    def _to_event_id(self, behavior: str) -> str:
+        """
+        将行为名规范化为事件ID（尽量无枚举，少量必要映射）。
+        例如: move->movement, talk->conversation, sleep->sleeping, eat->eating。
+        未匹配则返回原值（假定已是事件ID）。
+        """
+        b = (behavior or "").lower()
+        mapping = {
+            "move": "movement",
+            "talk": "conversation",
+            "sleep": "sleeping",
+            "eat": "eating",
+            "read": "reading",
+            "create": "creating",
+            "reflect": "reflection",
+            "explore": "town_exploration",
+            # 追加最小必要别名映射（来自角色常用行为）
+            "idle": "reflection",
+            "think": "reflection",
+            "plan": "reflection",
+            "relax": "socialize",
+            "rest": "sleeping",
+            "commute": "movement",
+            "take_break": "socialize",
+        }
+        return mapping.get(b, b)
+
+    def _resolve_executor(self, action_type: str):
+        """
+        解析动作执行方法。优先精确匹配 _execute_{action_type}_action；
+        其次处理少量词形变化（movement->move, conversation->talk, *ing 还原）。
+        找不到则返回 None，由通用执行处理。
+        """
+        if not action_type:
+            return None
+        name = action_type.lower()
+        # 1) 直接匹配
+        method_name = f"_execute_{name}_action"
+        if hasattr(self, method_name):
+            return getattr(self, method_name)
+        # 2) 少量必要词形映射
+        special = {"movement": "move", "conversation": "talk", "town_exploration": "explore"}
+        if name in special:
+            m2 = f"_execute_{special[name]}_action"
+            if hasattr(self, m2):
+                return getattr(self, m2)
+        # 3) 处理 *ing 词形（read/create/sleep/eat/work 等）
+        if name.endswith("ing"):
+            base = name[:-3]  # reading->read, sleeping->sleep, eating->eat, working->work
+            for cand in (base, base + "e"):
+                m3 = f"_execute_{cand}_action"
+                if hasattr(self, m3):
+                    return getattr(self, m3)
+        return None
+
+    def _set_state_for_action(self, event_id: str):
+        """
+        根据事件ID或事件分类设置 AgentState，尽量不逐一枚举。
+        优先少量确定映射；否则依据事件分类（social->SOCIALIZING, work->WORKING）。
+        """
+        e = (event_id or "").lower()
+        fixed = {
+            "movement": AgentState.MOVING,
+            "conversation": AgentState.TALKING,
+            "socialize": AgentState.SOCIALIZING,
+            "work": AgentState.WORKING,
+            "sleeping": AgentState.SLEEPING,
+            "eating": AgentState.EATING,
+        }
+        if e in fixed:
+            self.state = fixed[e]
+            return
+        # 基于事件分类回退
+        metadata = event_registry.get_event_metadata(e)
+        if metadata:
+            cat = getattr(metadata, "category", None)
+            if str(getattr(cat, "value", cat)).lower() == "social":
+                self.state = AgentState.SOCIALIZING
+            elif str(getattr(cat, "value", cat)).lower() == "work":
+                self.state = AgentState.WORKING
+            # 其余分类保持原状态
 
     async def step(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -342,59 +427,76 @@ class BaseAgent(ABC):
             self.state = AgentState(self.current_action.get("state", "idle"))
 
     async def _execute_current_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
-        """执行当前行动"""
+        """
+        执行当前行动（统一解析，最少枚举）。
+        """
         if self.current_action is None:
             return {"type": "idle", "agent_id": self.agent_id}
 
         action_type = self.current_action.get("type")
 
-        # 检查该行为是否在可用行为列表中
-        if action_type not in self.available_behaviors:
-            # 如果不可用，降级到默认行为
-            return await self._execute_default_action(action_type, world_state)
+        # 行为可用性不再严格限制，缺省进入解析/通用执行
+        executor = self._resolve_executor(action_type)
+        if executor:
+            # 在具体执行前设置状态（具体方法内如有覆盖，以覆盖为准）
+            self._set_state_for_action(self._to_event_id(action_type))
+            return (
+                await executor(world_state)
+                if asyncio.iscoroutinefunction(executor)
+                else executor(world_state)
+            )
 
-        # 使用动态方法调用执行行为
-        method_name = f"_execute_{action_type}_action"
-        if hasattr(self, method_name):
-            method = getattr(self, method_name)
-            if asyncio.iscoroutinefunction(method):
-                return await method(world_state)
-            else:
-                return method(world_state)
-        else:
-            # 如果没有专门的执行方法，使用通用执行
-            return await self._execute_generic_action(action_type, world_state)
+        # 通用执行：事件类型用标准化ID，并设置状态
+        event_id = self._to_event_id(action_type)
+        self._set_state_for_action(event_id)
+        return await self._execute_generic_action(event_id, world_state)
 
     async def _execute_default_action(
         self, attempted_action: str, world_state: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """当尝试的行为不可用时执行默认行为"""
-        # 根据性格选择替代行为
-        if attempted_action == "socialize":
-            # 内向者用独处活动替代社交
-            if self.personality.get("extraversion", 0.5) < 0.5:
-                return await self._execute_reflect_action(world_state)
-            else:
-                return await self._execute_talk_action(world_state)
+        """
+        默认回退：不枚举别名，直接走通用执行，事件类型使用标准化ID。
+        """
+        event_id = self._to_event_id(attempted_action)
+        self._set_state_for_action(event_id)
+        return await self._execute_generic_action(event_id, world_state)
 
-        # 默认返回工作或移动
-        if "work" in self.available_behaviors:
-            return await self._execute_work_action(world_state)
-        else:
-            return await self._execute_move_action(world_state)
+    def receive_message(self, sender_id: str, message: str, context: Dict[str, Any]):
+        """接收来自其他智能体的消息"""
+        # 创建观察记录
+        obs = Observation(
+            timestamp=GameTime.now(),
+            observer_id=self.agent_id,
+            event_type="received_message",
+            description=f"{context.get('sender_name', sender_id)} said: {message}",
+            location=self.position,
+            participants=[sender_id],
+            importance=4.0,
+            metadata={"message": message, "sender": sender_id},
+        )
+        self.memory.add_observation(obs)
 
-    async def _execute_generic_action(
-        self, action_type: str, world_state: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """执行通用行为"""
+    def get_status(self) -> Dict[str, Any]:
+        """获取智能体当前状态"""
         return {
-            "type": action_type,
             "agent_id": self.agent_id,
+            "name": self.name,
+            "age": self.age,
+            "occupation": self.occupation,
+            "work_area": self.work_area,
             "position": {"x": self.position.x, "y": self.position.y, "area": self.position.area},
+            "state": self.state.value,
+            "energy": self.energy,
+            "mood": self.mood,
+            "current_action": self.current_action,
+            "memory_count": len(self.memory.observations),
         }
 
-    async def _execute_move_action(self) -> Dict[str, Any]:
-        """执行移动行动"""
+    async def _execute_move_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        执行移动行动
+        """
+        self.state = AgentState.MOVING
         target = self.current_action.get("target_position")
         if target:
             # 简单的移动逻辑
@@ -414,26 +516,30 @@ class BaseAgent(ABC):
                     self.position.area = target.get("area", self.position.area)
 
         return {
-            "type": "move",
+            "type": "movement",
             "agent_id": self.agent_id,
             "position": {"x": self.position.x, "y": self.position.y, "area": self.position.area},
         }
 
     async def _execute_talk_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
         """执行对话行动"""
+        self.state = AgentState.TALKING
         target_id = self.current_action.get("target_agent")
         message = self.current_action.get("message", f"Hello!")
 
         return {
-            "type": "talk",
+            "type": "conversation",
             "agent_id": self.agent_id,
             "target_agent": target_id,
             "message": message,
             "position": {"x": self.position.x, "y": self.position.y, "area": self.position.area},
         }
 
-    async def _execute_work_action(self) -> Dict[str, Any]:
-        """执行工作行动"""
+    async def _execute_work_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        执行工作行动
+        """
+        self.state = AgentState.WORKING
         work_type = self.current_action.get("work_type", "general")
 
         return {
@@ -445,6 +551,7 @@ class BaseAgent(ABC):
 
     async def _execute_socialize_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
         """执行社交行动"""
+        self.state = AgentState.SOCIALIZING
         activity = self.current_action.get("activity", "chat")
 
         return {
@@ -487,6 +594,28 @@ class BaseAgent(ABC):
             "position": {"x": self.position.x, "y": self.position.y, "area": self.position.area},
         }
 
+    async def _execute_eat_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        执行进食行动，统一事件类型为 'eating'
+        """
+        self.state = AgentState.EATING
+        return {
+            "type": "eating",
+            "agent_id": self.agent_id,
+            "position": {"x": self.position.x, "y": self.position.y, "area": self.position.area},
+        }
+
+    async def _execute_sleep_action(self, world_state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        执行睡眠行动，统一事件类型为 'sleeping'
+        """
+        self.state = AgentState.SLEEPING
+        return {
+            "type": "sleeping",
+            "agent_id": self.agent_id,
+            "position": {"x": self.position.x, "y": self.position.y, "area": self.position.area},
+        }
+
     def _update_internal_state(self):
         """更新内部状态"""
         # 更新能量
@@ -506,34 +635,3 @@ class BaseAgent(ABC):
             self.mood += 0.05
 
         self.mood = max(-1.0, min(1.0, self.mood))
-
-    def receive_message(self, sender_id: str, message: str, context: Dict[str, Any]):
-        """接收来自其他智能体的消息"""
-        # 创建观察记录
-        obs = Observation(
-            timestamp=GameTime.now(),
-            observer_id=self.agent_id,
-            event_type="received_message",
-            description=f"{context.get('sender_name', sender_id)} said: {message}",
-            location=self.position,
-            participants=[sender_id],
-            importance=4.0,
-            metadata={"message": message, "sender": sender_id},
-        )
-        self.memory.add_observation(obs)
-
-    def get_status(self) -> Dict[str, Any]:
-        """获取智能体当前状态"""
-        return {
-            "agent_id": self.agent_id,
-            "name": self.name,
-            "age": self.age,
-            "occupation": self.occupation,
-            "work_area": self.work_area,
-            "position": {"x": self.position.x, "y": self.position.y, "area": self.position.area},
-            "state": self.state.value,
-            "energy": self.energy,
-            "mood": self.mood,
-            "current_action": self.current_action,
-            "memory_count": len(self.memory.observations),
-        }

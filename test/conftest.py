@@ -9,6 +9,13 @@ from pathlib import Path
 
 import pytest
 
+# Windows 下切换为 SelectorEventLoopPolicy，避免 Proactor 在关闭阶段的 Unraisable 警告
+if sys.platform.startswith("win"):
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    except Exception:
+        pass
+
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -28,6 +35,14 @@ def event_loop():
     except RuntimeError:
         loop = asyncio.new_event_loop()
     yield loop
+    # 先优雅关闭 LLM 异步客户端，再关闭事件循环
+    try:
+        from ai_town.llm.llm_integration import llm_manager
+
+        if not loop.is_closed():
+            loop.run_until_complete(llm_manager.shutdown())
+    except Exception:
+        pass
     loop.close()
 
 
