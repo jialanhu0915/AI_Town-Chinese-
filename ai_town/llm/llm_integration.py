@@ -92,6 +92,12 @@ class OllamaProvider(LLMProvider):
         prompt += "Assistant: "
         return await self.generate(prompt)
 
+    async def aclose(self):
+        try:
+            await self.client.aclose()
+        except Exception:
+            pass
+
 
 class OpenAIProvider(LLMProvider):
     """OpenAI API 提供者"""
@@ -135,6 +141,12 @@ class OpenAIProvider(LLMProvider):
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
             return LLMResponse(content="[LLM Error: Connection failed]")
+
+    async def aclose(self):
+        try:
+            await self.client.aclose()
+        except Exception:
+            pass
 
 
 class MockLLMProvider(LLMProvider):
@@ -183,6 +195,165 @@ class MockLLMProvider(LLMProvider):
         return await self.generate("hello")
 
 
+class DeepSeekProvider(LLMProvider):
+    """DeepSeek API 提供商（OpenAI 兼容风格）"""
+
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = "deepseek-chat",
+        base_url: str = "https://api.deepseek.com",
+    ):
+        self.api_key = api_key
+        self.model_name = model_name
+        self.base_url = base_url.rstrip("/")
+        self.client = httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {self.api_key}"}, timeout=60.0
+        )
+
+    async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
+        messages = [{"role": "user", "content": prompt}]
+        return await self.chat(messages)
+
+    async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
+        try:
+            url = f"{self.base_url}/v1/chat/completions"
+            response = await self.client.post(
+                url,
+                json={
+                    "model": self.model_name,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "max_tokens": 500,
+                },
+            )
+            if response.status_code == 200:
+                result = response.json()
+                content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return LLMResponse(
+                    content=content.strip(),
+                    metadata={"model": self.model_name, "provider": "deepseek"},
+                )
+            else:
+                logger.error(f"DeepSeek API error: {response.status_code} {response.text}")
+                return LLMResponse(content="[LLM Error: API request failed]")
+        except Exception as e:
+            logger.error(f"DeepSeek API error: {e}")
+            return LLMResponse(content="[LLM Error: Connection failed]")
+
+    async def aclose(self):
+        try:
+            await self.client.aclose()
+        except Exception:
+            pass
+
+
+class KimiProvider(LLMProvider):
+    """Kimi(Moonshot) 提供商（OpenAI 兼容风格）"""
+
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = "moonshot-v1-8k",
+        base_url: str = "https://api.moonshot.cn",
+    ):
+        self.api_key = api_key
+        self.model_name = model_name
+        self.base_url = base_url.rstrip("/")
+        self.client = httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {self.api_key}"}, timeout=60.0
+        )
+
+    async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
+        messages = [{"role": "user", "content": prompt}]
+        return await self.chat(messages)
+
+    async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
+        try:
+            url = f"{self.base_url}/v1/chat/completions"
+            response = await self.client.post(
+                url,
+                json={
+                    "model": self.model_name,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "max_tokens": 500,
+                },
+            )
+            if response.status_code == 200:
+                result = response.json()
+                content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return LLMResponse(
+                    content=content.strip(),
+                    metadata={"model": self.model_name, "provider": "kimi"},
+                )
+            else:
+                logger.error(f"Kimi API error: {response.status_code} {response.text}")
+                return LLMResponse(content="[LLM Error: API request failed]")
+        except Exception as e:
+            logger.error(f"Kimi API error: {e}")
+            return LLMResponse(content="[LLM Error: Connection failed]")
+
+    async def aclose(self):
+        try:
+            await self.client.aclose()
+        except Exception:
+            pass
+
+
+class QwenProvider(LLMProvider):
+    """Qwen 通义千问提供商（DashScope 兼容模式）"""
+
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = "qwen-plus",
+        base_url: str = "https://dashscope.aliyuncs.com/compatible-mode",
+    ):
+        self.api_key = api_key
+        self.model_name = model_name
+        self.base_url = base_url.rstrip("/")
+        self.client = httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {self.api_key}"}, timeout=60.0
+        )
+
+    async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
+        messages = [{"role": "user", "content": prompt}]
+        return await self.chat(messages)
+
+    async def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
+        try:
+            url = f"{self.base_url}/v1/chat/completions"
+            response = await self.client.post(
+                url,
+                json={
+                    "model": self.model_name,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "max_tokens": 500,
+                },
+            )
+            if response.status_code == 200:
+                result = response.json()
+                content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return LLMResponse(
+                    content=content.strip(),
+                    metadata={"model": self.model_name, "provider": "qwen"},
+                )
+            else:
+                logger.error(f"Qwen API error: {response.status_code} {response.text}")
+                return LLMResponse(content="[LLM Error: API request failed]")
+        except Exception as e:
+            logger.error(f"Qwen API error: {e}")
+            return LLMResponse(content="[LLM Error: Connection failed]")
+
+    async def aclose(self):
+        try:
+            await self.client.aclose()
+        except Exception:
+            pass
+
+
 class LLMManager:
     """LLM 管理器 - 管理多个 LLM 提供者"""
 
@@ -229,7 +400,7 @@ class LLMManager:
                     continue
 
         # 所有提供者都失败了
-        return LLMResponse(content="[所有 LLM 提供者都不可用]")
+        return LLMResponse(content="[LLM 提供者都不可用]")
 
     async def chat(self, messages: List[Dict[str, str]], provider_name: str = None) -> LLMResponse:
         """对话模式（支持故障转移）"""
@@ -254,11 +425,21 @@ class LLMManager:
                     logger.warning(f"Provider {provider_name} failed: {e}")
                     continue
 
-        return LLMResponse(content="[所有 LLM 提供者都不可用]")
+        return LLMResponse(content="[LLM 提供者都不可用]")
 
     def get_available_providers(self) -> List[str]:
         """获取可用的提供者列表"""
         return list(self.providers.keys())
+
+    async def shutdown(self):
+        """关闭所有 provider 的异步客户端"""
+        for provider in list(self.providers.values()):
+            aclose = getattr(provider, "aclose", None)
+            if callable(aclose):
+                try:
+                    await aclose()
+                except Exception:
+                    pass
 
 
 # 全局 LLM 管理器实例
@@ -293,10 +474,11 @@ def setup_default_llm_providers():
 
     # 根据配置注册 OpenAI
     openai_config = LLM_CONFIG.get("openai", {})
-    if openai_config.get("enabled", False) and openai_config.get("api_key"):
+    openai_key = openai_config.get("api_key") or os.getenv("OPENAI_API_KEY")
+    if openai_config.get("enabled", False) and openai_key:
         try:
             model_name = openai_config.get("model_name", "gpt-3.5-turbo")
-            openai_provider = OpenAIProvider(openai_config["api_key"], model_name)
+            openai_provider = OpenAIProvider(openai_key, model_name)
 
             is_default = LLM_CONFIG.get("default_provider") == "openai"
             llm_manager.register_provider("openai", openai_provider, is_default=is_default)
@@ -304,8 +486,62 @@ def setup_default_llm_providers():
         except Exception as e:
             logger.warning(f"Failed to register OpenAI provider: {e}")
 
+    # 根据配置注册 DeepSeek
+    deepseek_config = LLM_CONFIG.get("deepseek", {})
+    deepseek_key = deepseek_config.get("api_key") or os.getenv("DEEPSEEK_API_KEY")
+    if deepseek_config.get("enabled", False) and deepseek_key:
+        try:
+            model_name = deepseek_config.get("model_name", "deepseek-chat")
+            base_url = deepseek_config.get("base_url", "https://api.deepseek.com")
+            deepseek_provider = DeepSeekProvider(deepseek_key, model_name, base_url)
+
+            is_default = LLM_CONFIG.get("default_provider") == "deepseek"
+            llm_manager.register_provider("deepseek", deepseek_provider, is_default=is_default)
+            logger.info(f"DeepSeek provider registered with model: {model_name}")
+        except Exception as e:
+            logger.warning(f"Failed to register DeepSeek provider: {e}")
+
+    # 根据配置注册 Kimi(Moonshot)
+    kimi_config = LLM_CONFIG.get("kimi", {}) or LLM_CONFIG.get("moonshot", {})
+    kimi_key = (
+        kimi_config.get("api_key") or os.getenv("MOONSHOT_API_KEY") or os.getenv("KIMI_API_KEY")
+    )
+    if kimi_config.get("enabled", False) and kimi_key:
+        try:
+            model_name = kimi_config.get("model_name", "moonshot-v1-8k")
+            base_url = kimi_config.get("base_url", "https://api.moonshot.cn")
+            kimi_provider = KimiProvider(kimi_key, model_name, base_url)
+
+            is_default = LLM_CONFIG.get("default_provider") == "kimi"
+            llm_manager.register_provider("kimi", kimi_provider, is_default=is_default)
+            logger.info(f"Kimi provider registered with model: {model_name}")
+        except Exception as e:
+            logger.warning(f"Failed to register Kimi provider: {e}")
+
+    # 根据配置注册 Qwen (DashScope 兼容模式)
+    qwen_config = LLM_CONFIG.get("qwen", {}) or LLM_CONFIG.get("dashscope", {})
+    qwen_key = (
+        qwen_config.get("api_key")
+        or os.getenv("DASHSCOPE_API_KEY")
+        or os.getenv("DASH_SCOPE_API_KEY")
+    )
+    if qwen_config.get("enabled", False) and qwen_key:
+        try:
+            model_name = qwen_config.get("model_name", "qwen-plus")
+            base_url = qwen_config.get("base_url", "https://dashscope.aliyuncs.com/compatible-mode")
+            qwen_provider = QwenProvider(qwen_key, model_name, base_url)
+
+            is_default = LLM_CONFIG.get("default_provider") == "qwen"
+            llm_manager.register_provider("qwen", qwen_provider, is_default=is_default)
+            logger.info(f"Qwen provider registered with model: {model_name}")
+        except Exception as e:
+            logger.warning(f"Failed to register Qwen provider: {e}")
+
     # 设置故障转移链
-    fallback_chain = LLM_CONFIG.get("fallback_chain", ["ollama", "openai", "mock"])
+    fallback_chain = LLM_CONFIG.get(
+        "fallback_chain",
+        ["ollama", "openai", "deepseek", "kimi", "qwen", "mock"],
+    )
     llm_manager.set_fallback_chain(fallback_chain)
 
     logger.info(f"Available LLM providers: {llm_manager.get_available_providers()}")
@@ -324,3 +560,20 @@ async def chat_with_llm(messages: List[Dict[str, str]], provider: str = None) ->
     """便捷的 LLM 对话函数"""
     response = await llm_manager.chat(messages, provider)
     return response.content
+
+
+# 在进程退出时尽量优雅关闭异步客户端，避免 Windows 上的 Unraisable 警告
+import atexit as _atexit
+
+
+def _shutdown_llms_sync():
+    try:
+        import asyncio as _asyncio
+
+        _asyncio.run(llm_manager.shutdown())
+    except Exception:
+        # 若事件循环环境不允许，忽略
+        pass
+
+
+_atexit.register(_shutdown_llms_sync)

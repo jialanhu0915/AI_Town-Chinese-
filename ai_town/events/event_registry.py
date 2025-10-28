@@ -374,6 +374,72 @@ class EventRegistry:
             )
         )
 
+        # 通用个人/生活事件
+        self.register_event(
+            EventMetadata(
+                event_id="eating",
+                icon="🍽️",
+                category=EventCategory.PERSONAL,
+                display_names={"zh": "进食", "en": "Eating"},
+                description_template={
+                    "zh": "{agent_name} 正在用餐",
+                    "en": "{agent_name} is having a meal",
+                },
+                color="#FFB74D",
+                duration_range=(15, 30),
+                tags=["general", "wellness"],
+            )
+        )
+
+        self.register_event(
+            EventMetadata(
+                event_id="sleeping",
+                icon="😴",
+                category=EventCategory.PERSONAL,
+                display_names={"zh": "睡眠", "en": "Sleeping"},
+                description_template={
+                    "zh": "{agent_name} 正在睡觉",
+                    "en": "{agent_name} is sleeping",
+                },
+                color="#607D8B",
+                duration_range=(360, 540),  # 6-9 小时
+                tags=["general", "rest"],
+            )
+        )
+
+        # 通用社交与创作
+        self.register_event(
+            EventMetadata(
+                event_id="socialize",
+                icon="🤝",
+                category=EventCategory.SOCIAL,
+                display_names={"zh": "社交", "en": "Socializing"},
+                description_template={
+                    "zh": "{agent_name} 正在与他人交流",
+                    "en": "{agent_name} is socializing with others",
+                },
+                color="#00B8D9",
+                duration_range=(10, 30),
+                tags=["social", "communication"],
+            )
+        )
+
+        self.register_event(
+            EventMetadata(
+                event_id="creating",
+                icon="✍️",
+                category=EventCategory.RECREATION,
+                display_names={"zh": "创作", "en": "Creating"},
+                description_template={
+                    "zh": "{agent_name} 正在进行创作活动",
+                    "en": "{agent_name} is doing a creative activity",
+                },
+                color="#9C27B0",
+                duration_range=(30, 60),
+                tags=["creative", "hobby"],
+            )
+        )
+
 
 # 全局事件注册表实例
 event_registry = EventRegistry()

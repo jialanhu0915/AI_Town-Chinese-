@@ -37,14 +37,21 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
+    """
+    应用生命周期管理
+    """
     # 启动时的初始化
     logger.info("AI Town 可视化服务启动")
-    yield
-    # 关闭时的清理
-    if manager and manager.is_running:
-        await manager.pause_simulation()
-    logger.info("AI Town 可视化服务关闭")
+    try:
+        yield
+    except asyncio.CancelledError:
+        # 关停时的协程取消是预期行为，避免打印错误栈
+        pass
+    finally:
+        # 关闭时的清理
+        if manager and manager.is_running:
+            await manager.pause_simulation()
+        logger.info("AI Town 可视化服务关闭")
 
 
 app = FastAPI(title="AI Town 可视化服务", lifespan=lifespan)
@@ -67,7 +74,9 @@ async def get_js():
 
 
 class VisualizationManager:
-    """可视化管理器 - 处理模拟状态和WebSocket连接"""
+    """
+    可视化管理器 - 处理模拟状态和WebSocket连接
+    """
 
     def __init__(self):
         self.world: World = None
@@ -167,7 +176,9 @@ class VisualizationManager:
         logger.info("模拟已开始")
 
     async def pause_simulation(self):
-        """暂停模拟"""
+        """
+        暂停模拟
+        """
         if not self.is_running:
             return
 
@@ -179,6 +190,9 @@ class VisualizationManager:
                 await self.simulation_task
             except asyncio.CancelledError:
                 pass
+            finally:
+                # 置空引用，防止重复操作同一任务
+                self.simulation_task = None
 
         await self.broadcast_message(
             {"type": "simulation_paused", "data": {"message": "模拟已暂停"}}
@@ -287,6 +301,10 @@ if __name__ == "__main__":
     print("📱 请在浏览器中访问: http://localhost:8000")
     print("⏹️  按 Ctrl+C 停止服务")
 
-    uvicorn.run(
-        "visualization_server:app", host="0.0.0.0", port=8000, reload=False, log_level="info"
-    )
+    try:
+        uvicorn.run(
+            "visualization_server:app", host="0.0.0.0", port=8000, reload=False, log_level="info"
+        )
+    except KeyboardInterrupt:
+        # 吞掉 Ctrl+C 的栈追踪，保持优雅退出
+        pass

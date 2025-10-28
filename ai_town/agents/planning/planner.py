@@ -146,13 +146,13 @@ class ActionPlanner:
         # 基于时间评估需求
         time_of_day = GameTime.get_time_of_day()
         if time_of_day == "night" and self.agent.energy < 70:
-            needs["energy"] = 0.8
+            needs["energy"] = max(needs["energy"], 0.8)
         elif time_of_day == "morning":
             needs["work"] = 0.6
         elif time_of_day == "evening":
             needs["social"] = 0.7
 
-        # 基于记忆评估社交需求
+        # 基于记忆评估社交需求（结合外向性和冷却）
         recent_social_memories = [
             memory
             for memory in context_memories
@@ -162,18 +162,49 @@ class ActionPlanner:
             )
         ]
 
-        if len(recent_social_memories) < 3:  # 最近社交活动较少
-            needs["social"] = 0.6
+        # 最近社交较少会提升社交需求，但受外向性调节
+        extraversion = float(self.agent.personality.get("extraversion", 0.5))
+        if len(recent_social_memories) < 3:
+            needs["social"] = max(needs["social"], 0.6 * extraversion)
+
+        # 能量对社交的约束：低能量时显著降低社交意愿
+        if self.agent.energy < 40:
+            needs["social"] *= 0.6
+        if self.agent.energy < 20:
+            needs["social"] *= 0.3
+
+        # 社交冷却：若30分钟内已经发生多次社交/对话，进一步降低社交
+        try:
+            from ai_town.core.time_manager import GameTime as _GT
+
+            recent_convos_in_30 = sum(
+                1
+                for m in recent_social_memories
+                if hasattr(m, "timestamp") and _GT.minutes_since(m.timestamp) <= 30
+            )
+            if recent_convos_in_30 >= 2:
+                needs["social"] *= 0.5
+        except Exception:
+            pass
+
+        # 外向性对社交需求的全局缩放（内向者显著降低）
+        needs["social"] *= extraversion
 
         # 基于位置和环境评估需求
         current_area = self.agent.position.area
         if current_area == "home":
             needs["maintenance"] = 0.4
         elif current_area == "office":
-            needs["work"] = 0.7
+            needs["work"] = max(needs["work"], 0.7)
         elif current_area == "park":
-            needs["social"] = 0.5
-            needs["exploration"] = 0.3
+            needs["social"] = max(needs["social"], 0.5 * extraversion)
+            needs["exploration"] = max(needs["exploration"], 0.3)
+
+        # 轻微随机扰动，避免行为单一（保持小幅度，0.9~1.1）
+        import random as _rand
+
+        for k in needs:
+            needs[k] = max(0.0, min(1.0, needs[k] * (0.9 + 0.2 * _rand.random())))
 
         return needs
 
@@ -297,16 +328,26 @@ class ActionPlanner:
         return actions
 
     async def _create_social_plan(self, world_state: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """创建社交计划"""
-        actions = []
+        """创建社交计划（内向者更倾向于安静活动）"""
+        actions: List[Dict[str, Any]] = []
+        extraversion = float(self.agent.personality.get("extraversion", 0.5))
 
-        # 寻找附近的其他智能体
+        # 内向者大概率选择安静活动替代直接社交
+        import random as _rand
+
+        if extraversion < 0.5 and _rand.random() < (0.7 - extraversion):
+            quiet_choice = _rand.choice(
+                [
+                    {"type": "reflect", "duration": 10, "description": "Take some quiet time"},
+                    {"type": "read", "duration": 15, "description": "Read quietly"},
+                ]
+            )
+            return [quiet_choice]
+
+        # 原有社交逻辑
         nearby_agents = world_state.get("nearby_agents", [])
-
         if nearby_agents:
-            # 选择一个智能体进行交流
-            target_agent = nearby_agents[0]  # 简单选择第一个
-
+            target_agent = nearby_agents[0]
             actions.append(
                 {
                     "type": "move",
@@ -318,7 +359,6 @@ class ActionPlanner:
                     "description": f"Move closer to {target_agent['name']}",
                 }
             )
-
             actions.append(
                 {
                     "type": "talk",
@@ -328,26 +368,19 @@ class ActionPlanner:
                     "description": f"Start a conversation with {target_agent['name']}",
                 }
             )
-        else:
-            # 去社交场所
-            actions.append(
+            return actions
+
+        # 无人可聊时，根据外向性选择去公园或安静活动
+        if extraversion >= 0.5:
+            return [
                 {
                     "type": "move",
                     "target_position": {"x": 50, "y": 50, "area": "park"},
                     "description": "Go to the park to meet people",
                 }
-            )
-
-            actions.append(
-                {
-                    "type": "socialize",
-                    "activity": "look_for_people",
-                    "duration": 15,
-                    "description": "Look for people to talk to",
-                }
-            )
-
-        return actions
+            ]
+        else:
+            return [{"type": "reflect", "duration": 10, "description": "Have a quiet break"}]
 
     async def _create_work_plan(self, world_state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """创建工作计划"""
@@ -376,15 +409,19 @@ class ActionPlanner:
         return actions
 
     async def _create_default_plan(self, world_state: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """创建默认计划"""
-        return [
-            {
-                "type": "socialize",
-                "activity": "observe",
-                "duration": 5,
-                "description": "Observe the environment",
-            }
-        ]
+        """创建默认计划：外向者偏社交，内向者偏安静活动"""
+        extraversion = float(self.agent.personality.get("extraversion", 0.5))
+        if extraversion >= 0.5:
+            return [
+                {
+                    "type": "socialize",
+                    "activity": "observe",
+                    "duration": 5,
+                    "description": "Observe the environment",
+                }
+            ]
+        else:
+            return [{"type": "reflect", "duration": 8, "description": "Think quietly"}]
 
     async def _create_leisure_plan(self, world_state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """创建休闲计划"""
