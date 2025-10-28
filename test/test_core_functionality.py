@@ -112,7 +112,7 @@ def test_behavior_system():
 
     # 测试Alice的行为配置
     alice_behaviors = alice.available_behaviors
-    assert "coffee_making" in alice_behaviors, "Alice应该有制作咖啡的行为"
+    assert "make_coffee" in alice_behaviors, "Alice应该有制作咖啡的行为"
     assert "greet_customer" in alice_behaviors, "Alice应该有迎接顾客的行为"
 
     # 测试Bob的行为配置

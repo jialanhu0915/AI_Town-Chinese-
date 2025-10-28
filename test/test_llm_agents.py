@@ -7,6 +7,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
 # 添加项目根目录到路径
 project_root = Path(__file__).parent
 sys.path.append(str(project_root))
@@ -19,6 +21,7 @@ from ai_town.core.time_manager import GameTime
 from ai_town.llm.llm_integration import llm_manager, setup_default_llm_providers
 
 
+@pytest.mark.asyncio
 async def test_llm_agents():
     """测试 LLM 增强智能体"""
 

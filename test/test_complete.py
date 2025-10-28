@@ -8,6 +8,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
 # 添加项目根目录到路径
 project_root = Path(__file__).parent
 sys.path.append(str(project_root))
@@ -16,6 +18,7 @@ print("🧪 AI 小镇完整系统测试")
 print("=" * 60)
 
 
+@pytest.mark.asyncio
 async def test_all_agents():
     """测试所有智能体创建和基本功能"""
     print("\n📋 测试智能体系统...")
@@ -85,6 +88,7 @@ async def test_all_agents():
         return False
 
 
+@pytest.mark.asyncio
 async def test_visualization_components():
     """测试可视化组件"""
     print(f"\n🎨 测试可视化组件...")
