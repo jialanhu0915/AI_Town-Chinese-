@@ -42,7 +42,6 @@ async def lifespan(app: FastAPI):
     logger.info("AI Town 可视化服务启动")
     yield
     # 关闭时的清理
-    global manager
     if manager and manager.is_running:
         await manager.pause_simulation()
     logger.info("AI Town 可视化服务关闭")
