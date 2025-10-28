@@ -1,0 +1,35 @@
+# AI Town Core Dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+websockets>=12.0
+asyncio-mqtt>=0.13.0
+python-multipart>=0.0.6
+
+# Data Processing
+pydantic>=2.4.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# LLM Integration
+openai>=1.3.0
+httpx>=0.25.0
+aiohttp>=3.9.0
+
+# Development and Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+black>=23.9.0
+flake8>=6.1.0
+isort>=5.12.0
+bandit>=1.7.5
+safety>=2.3.0
+
+# Optional: Advanced Features
+ollama>=0.1.0
+langchain>=0.0.350
+tiktoken>=0.5.0
+
+# Web Interface
+jinja2>=3.1.0
+python-jose[cryptography]>=3.3.0

@@ -1,52 +1,52 @@
 @echo off
-REM AI Town æ¨¡æ‹Ÿå¯åŠ¨è„šæœ¬
+REM AI Town Ä£ÄâÆô¶¯½Å±¾
 
 echo ========================================
-echo           AI Town æ¨¡æ‹Ÿç³»ç»Ÿ
+echo           AI Town Ä£ÄâÏµÍ³
 echo ========================================
 echo.
 
-REM æ£€æŸ¥è™šæ‹ŸçŽ¯å¢ƒ
+REM ¼ì²éÐéÄâ»·¾³
 if not exist ".venv\" (
-    echo é”™è¯¯: æœªæ‰¾åˆ°è™šæ‹ŸçŽ¯å¢ƒ .venv
-    echo è¯·å…ˆåˆ›å»ºè™šæ‹ŸçŽ¯å¢ƒ: python -m venv .venv
-    echo ç„¶åŽæ¿€æ´»å¹¶å®‰è£…ä¾èµ–: .venv\Scripts\activate ^&^& pip install -r ai_town\requirements.txt
+    echo ´íÎó: Î´ÕÒµ½ÐéÄâ»·¾³ .venv
+    echo ÇëÏÈ´´½¨ÐéÄâ»·¾³: python -m venv .venv
+    echo È»ºó¼¤»î²¢°²×°ÒÀÀµ: .venv\Scripts\activate ^&^& pip install -r ai_town\requirements.txt
     pause
     exit /b 1
 )
 
-REM æ¿€æ´»è™šæ‹ŸçŽ¯å¢ƒ
-echo æ¿€æ´»è™šæ‹ŸçŽ¯å¢ƒ...
+REM ¼¤»îÐéÄâ»·¾³
+echo ¼¤»îÐéÄâ»·¾³...
 call .venv\Scripts\activate
 
-REM æ£€æŸ¥ä¾èµ–
-echo æ£€æŸ¥ä¾èµ–åŒ…...
+REM ¼ì²éÒÀÀµ
+echo ¼ì²éÒÀÀµ°ü...
 python -c "import fastapi, pydantic, sqlalchemy" 2>nul
 if %errorlevel% neq 0 (
-    echo è­¦å‘Š: éƒ¨åˆ†ä¾èµ–åŒ…æœªå®‰è£…ï¼Œå°è¯•å®‰è£…...
+    echo ¾¯¸æ: ²¿·ÖÒÀÀµ°üÎ´°²×°£¬³¢ÊÔ°²×°...
     pip install -r ai_town\requirements.txt
     if %errorlevel% neq 0 (
-        echo é”™è¯¯: ä¾èµ–å®‰è£…å¤±è´¥
+        echo ´íÎó: ÒÀÀµ°²×°Ê§°Ü
         pause
         exit /b 1
     )
 )
 
-REM è®¾ç½®çŽ¯å¢ƒå˜é‡
+REM ÉèÖÃ»·¾³±äÁ¿
 set PYTHONPATH=%CD%
 
-REM å¯åŠ¨é€‰é¡¹èœå•
+REM Æô¶¯Ñ¡Ïî²Ëµ¥
 :menu
 echo.
-echo è¯·é€‰æ‹©å¯åŠ¨é€‰é¡¹:
-echo 1. è¿è¡Œ AI Town æ¨¡æ‹Ÿ (å‘½ä»¤è¡Œç‰ˆ)
-echo 2. è¿è¡Œ AI Town æ¨¡æ‹Ÿ (æŒ‡å®šæ—¶é•¿)
-echo 3. å¯åŠ¨å¯è§†åŒ–ç•Œé¢ (æŽ¨è!)
-echo 4. æµ‹è¯•åŸºæœ¬åŠŸèƒ½
-echo 5. æŸ¥çœ‹é¡¹ç›®ä¿¡æ¯
-echo 6. é€€å‡º
+echo ÇëÑ¡ÔñÆô¶¯Ñ¡Ïî:
+echo 1. ÔËÐÐ AI Town Ä£Äâ (ÃüÁîÐÐ°æ)
+echo 2. ÔËÐÐ AI Town Ä£Äâ (Ö¸¶¨Ê±³¤)
+echo 3. Æô¶¯¿ÉÊÓ»¯½çÃæ (ÍÆ¼ö!)
+echo 4. ²âÊÔ»ù±¾¹¦ÄÜ
+echo 5. ²é¿´ÏîÄ¿ÐÅÏ¢
+echo 6. ÍË³ö
 echo.
-set /p choice=è¯·è¾“å…¥é€‰é¡¹ (1-6): 
+set /p choice=ÇëÊäÈëÑ¡Ïî (1-6): 
 
 if "%choice%"=="1" goto run_interactive
 if "%choice%"=="2" goto run_timed
@@ -57,36 +57,36 @@ if "%choice%"=="6" goto exit
 
 :start_visualization_direct
 echo.
-echo ðŸŽ¨ å¯åŠ¨ AI å°é•‡å¯è§†åŒ–ç•Œé¢...
-echo ðŸŒ æµè§ˆå™¨è®¿é—®åœ°å€: http://localhost:8000
-echo ðŸ“± å¯è§†åŒ–æŽ§åˆ¶é¢æ¿å·²å¯åŠ¨
-echo â¹ï¸  æŒ‰ Ctrl+C åœæ­¢æœåŠ¡
+echo ? Æô¶¯ AI Ð¡Õò¿ÉÊÓ»¯½çÃæ...
+echo ? ä¯ÀÀÆ÷·ÃÎÊµØÖ·: http://localhost:8000
+echo ? ¿ÉÊÓ»¯¿ØÖÆÃæ°åÒÑÆô¶¯
+echo ??  °´ Ctrl+C Í£Ö¹·þÎñ
 echo.
-echo å¯åŠ¨åŽè¯·åœ¨æµè§ˆå™¨ä¸­æ‰“å¼€: http://localhost:8000
+echo Æô¶¯ºóÇëÔÚä¯ÀÀÆ÷ÖÐ´ò¿ª: http://localhost:8000
 echo.
 python ai_town\ui\visualization_server.py
 goto menu
-echo æ— æ•ˆé€‰é¡¹ï¼Œè¯·é‡æ–°é€‰æ‹©
+echo ÎÞÐ§Ñ¡Ïî£¬ÇëÖØÐÂÑ¡Ôñ
 goto menu
 
 :run_interactive
 echo.
-echo å¯åŠ¨äº¤äº’å¼ AI Town æ¨¡æ‹Ÿ...
-echo æŒ‰ Ctrl+C åœæ­¢æ¨¡æ‹Ÿ
+echo Æô¶¯½»»¥Ê½ AI Town Ä£Äâ...
+echo °´ Ctrl+C Í£Ö¹Ä£Äâ
 echo.
 python ai_town\simulation_runner.py
 goto menu
 
 :run_timed
 echo.
-set /p duration=è¯·è¾“å…¥æ¨¡æ‹Ÿæ—¶é•¿(åˆ†é’Ÿ): 
+set /p duration=ÇëÊäÈëÄ£ÄâÊ±³¤(·ÖÖÓ): 
 if "%duration%"=="" (
-    echo æ—¶é•¿ä¸èƒ½ä¸ºç©º
+    echo Ê±³¤²»ÄÜÎª¿Õ
     goto menu
 )
 echo.
-echo å¯åŠ¨ AI Town æ¨¡æ‹Ÿï¼Œè¿è¡Œ %duration% åˆ†é’Ÿ...
-echo æŒ‰ Ctrl+C æå‰åœæ­¢
+echo Æô¶¯ AI Town Ä£Äâ£¬ÔËÐÐ %duration% ·ÖÖÓ...
+echo °´ Ctrl+C ÌáÇ°Í£Ö¹
 echo.
 python -c "
 import asyncio
@@ -100,12 +100,12 @@ async def timed_simulation():
     GameTime.initialize(time_multiplier=10.0)
     world = World()
     
-    # ä½¿ç”¨æ™ºèƒ½ä½“ç®¡ç†å™¨åˆ›å»ºæ™ºèƒ½ä½“
+    # Ê¹ÓÃÖÇÄÜÌå¹ÜÀíÆ÷´´½¨ÖÇÄÜÌå
     created_agents = agent_manager.create_default_agents()
     for agent in created_agents:
         world.add_agent(agent)
     
-    print(f'ðŸƒ æ¨¡æ‹Ÿè¿è¡Œ %duration% åˆ†é’Ÿï¼Œå…±æœ‰ {len(created_agents)} ä¸ªæ™ºèƒ½ä½“...')
+    print(f'? Ä£ÄâÔËÐÐ %duration% ·ÖÖÓ£¬¹²ÓÐ {len(created_agents)} ¸öÖÇÄÜÌå...')
     await world.run_simulation(duration_minutes=%duration%)
 
 asyncio.run(timed_simulation())
@@ -114,83 +114,83 @@ goto menu
 
 :start_api
 echo.
-echo è¯·é€‰æ‹©å¯åŠ¨æ¨¡å¼:
-echo 1. å¯åŠ¨å¯è§†åŒ–ç•Œé¢ (æŽ¨è)
-echo 2. å¯åŠ¨ API æœåŠ¡å™¨
+echo ÇëÑ¡ÔñÆô¶¯Ä£Ê½:
+echo 1. Æô¶¯¿ÉÊÓ»¯½çÃæ (ÍÆ¼ö)
+echo 2. Æô¶¯ API ·þÎñÆ÷
 echo.
-set /p api_choice=è¯·é€‰æ‹© (1-2): 
+set /p api_choice=ÇëÑ¡Ôñ (1-2): 
 
 if "%api_choice%"=="1" goto start_visualization
 if "%api_choice%"=="2" goto start_basic_api
 
 :start_visualization
 echo.
-echo ðŸŽ¨ å¯åŠ¨ AI å°é•‡å¯è§†åŒ–ç•Œé¢...
-echo ðŸŒ æµè§ˆå™¨è®¿é—®åœ°å€: http://localhost:8000
-echo ðŸ“± å¯è§†åŒ–æŽ§åˆ¶é¢æ¿å·²å¯åŠ¨
-echo â¹ï¸  æŒ‰ Ctrl+C åœæ­¢æœåŠ¡
+echo ? Æô¶¯ AI Ð¡Õò¿ÉÊÓ»¯½çÃæ...
+echo ? ä¯ÀÀÆ÷·ÃÎÊµØÖ·: http://localhost:8000
+echo ? ¿ÉÊÓ»¯¿ØÖÆÃæ°åÒÑÆô¶¯
+echo ??  °´ Ctrl+C Í£Ö¹·þÎñ
 echo.
 python ai_town\ui\visualization_server.py
 goto menu
 
 :start_basic_api
 echo.
-echo å¯åŠ¨åŸºç¡€ API æœåŠ¡å™¨...
-echo æœåŠ¡åœ°å€: http://localhost:8000
-echo API æ–‡æ¡£: http://localhost:8000/docs
-echo æŒ‰ Ctrl+C åœæ­¢æœåŠ¡
+echo Æô¶¯»ù´¡ API ·þÎñÆ÷...
+echo ·þÎñµØÖ·: http://localhost:8000
+echo API ÎÄµµ: http://localhost:8000/docs
+echo °´ Ctrl+C Í£Ö¹·þÎñ
 echo.
 python -m uvicorn ai_town.api.main:app --reload --host 0.0.0.0 --port 8000
 goto menu
 
 :test_basic
 echo.
-echo è¿è¡ŒåŸºæœ¬åŠŸèƒ½æµ‹è¯•...
+echo ÔËÐÐ»ù±¾¹¦ÄÜ²âÊÔ...
 echo.
 python test_basic.py
 echo.
-echo æµ‹è¯•å®Œæˆï¼
+echo ²âÊÔÍê³É£¡
 pause
 goto menu
 
 :show_info
 echo.
 echo ========================================
-echo           AI Town é¡¹ç›®ä¿¡æ¯
+echo           AI Town ÏîÄ¿ÐÅÏ¢
 echo ========================================
 echo.
-echo ðŸ˜ï¸ AI Town - æ™ºèƒ½ä½“å°é•‡æ¨¡æ‹Ÿç³»ç»Ÿ
+echo ?? AI Town - ÖÇÄÜÌåÐ¡ÕòÄ£ÄâÏµÍ³
 echo.
-echo ðŸ“ é¡¹ç›®ç»“æž„:
+echo ? ÏîÄ¿½á¹¹:
 echo   ai_town/
-echo   â”œâ”€â”€ agents/          # æ™ºèƒ½ä½“ç³»ç»Ÿ
-echo   â”œâ”€â”€ core/            # æ ¸å¿ƒç»„ä»¶ (ä¸–ç•Œã€æ—¶é—´)
-echo   â”œâ”€â”€ environment/     # çŽ¯å¢ƒç³»ç»Ÿ (åœ°å›¾ã€ç‰©ç†)
-echo   â”œâ”€â”€ social/          # ç¤¾äº¤ç³»ç»Ÿ
-echo   â”œâ”€â”€ api/             # API æŽ¥å£
-echo   â””â”€â”€ simulation/      # æ¨¡æ‹Ÿå¼•æ“Ž
+echo   ©À©¤©¤ agents/          # ÖÇÄÜÌåÏµÍ³
+echo   ©À©¤©¤ core/            # ºËÐÄ×é¼þ (ÊÀ½ç¡¢Ê±¼ä)
+echo   ©À©¤©¤ environment/     # »·¾³ÏµÍ³ (µØÍ¼¡¢ÎïÀí)
+echo   ©À©¤©¤ social/          # Éç½»ÏµÍ³
+echo   ©À©¤©¤ api/             # API ½Ó¿Ú
+echo   ©¸©¤©¤ simulation/      # Ä£ÄâÒýÇæ
 echo.
-echo ðŸ¤– å½“å‰æ™ºèƒ½ä½“:
-echo   - Alice: å’–å•¡åº—è€æ¿ï¼Œå‹å¥½å¤–å‘
-echo   - Bob: ä¹¦åº—è€æ¿ï¼Œå†…å‘åšå­¦ (å¯æ‰©å±•)
-echo   - Charlie: åŠžå…¬å®¤èŒå‘˜ï¼Œæ–°æ¥é•‡ä¸Š (å¯æ‰©å±•)
+echo ? µ±Ç°ÖÇÄÜÌå:
+echo   - Alice: ¿§·ÈµêÀÏ°å£¬ÓÑºÃÍâÏò
+echo   - Bob: ÊéµêÀÏ°å£¬ÄÚÏò²©Ñ§ (¿ÉÀ©Õ¹)
+echo   - Charlie: °ì¹«ÊÒÖ°Ô±£¬ÐÂÀ´ÕòÉÏ (¿ÉÀ©Õ¹)
 echo.
-echo ðŸŒŸ æ ¸å¿ƒç‰¹æ€§:
-echo   - å¤šæ™ºèƒ½ä½“è‡ªä¸»ç”Ÿæ´»æ¨¡æ‹Ÿ
-echo   - è®°å¿†ç³»ç»Ÿå’Œåæ€æœºåˆ¶
-echo   - ç¤¾äº¤äº’åŠ¨å’Œå…³ç³»ç®¡ç†
-echo   - åˆ†å±‚è¡Œä¸ºè§„åˆ’
-echo   - è™šæ‹Ÿå°é•‡çŽ¯å¢ƒ
+echo ? ºËÐÄÌØÐÔ:
+echo   - ¶àÖÇÄÜÌå×ÔÖ÷Éú»îÄ£Äâ
+echo   - ¼ÇÒäÏµÍ³ºÍ·´Ë¼»úÖÆ
+echo   - Éç½»»¥¶¯ºÍ¹ØÏµ¹ÜÀí
+echo   - ·Ö²ãÐÐÎª¹æ»®
+echo   - ÐéÄâÐ¡Õò»·¾³
 echo.
-echo ðŸ“š åŸºäºŽæ–¯å¦ç¦å¤§å­¦ AI Town è®ºæ–‡å®žçŽ°
+echo ? »ùÓÚË¹Ì¹¸£´óÑ§ AI Town ÂÛÎÄÊµÏÖ
 echo.
 pause
 goto menu
 
 :exit
 echo.
-echo æ„Ÿè°¢ä½¿ç”¨ AI Town æ¨¡æ‹Ÿç³»ç»Ÿï¼
-echo ðŸ˜ï¸ å†è§ï¼
+echo ¸ÐÐ»Ê¹ÓÃ AI Town Ä£ÄâÏµÍ³£¡
+echo ?? ÔÙ¼û£¡
 echo.
 pause
 exit /b 0

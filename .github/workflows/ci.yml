@@ -1,0 +1,217 @@
+name: AI Town CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov black flake8 isort
+
+    - name: Code formatting check with black
+      run: |
+        black --check --diff .
+
+    - name: Import sorting check with isort
+      run: |
+        isort --check-only --diff .
+
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Run unified event system tests
+      run: |
+        python test/test_unified_events.py
+
+    - name: Run all tests with pytest
+      run: |
+        pytest test/ -v --cov=ai_town --cov-report=xml --cov-report=html
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+
+    - name: Run bandit security linter
+      run: |
+        bandit -r ai_town/ -f json -o bandit-report.json || true
+        bandit -r ai_town/
+
+    - name: Check dependencies for known vulnerabilities
+      run: |
+        safety check
+
+  build-and-validate:
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Validate project structure
+      run: |
+        python -c "
+        import sys
+        from pathlib import Path
+        
+        # 检查核心模块是否存在
+        required_modules = [
+            'ai_town/__init__.py',
+            'ai_town/core/world.py',
+            'ai_town/agents/base_agent.py',
+            'ai_town/events/event_registry.py',
+            'ai_town/events/event_formatter.py',
+            'ai_town/ui/visualization_server.py'
+        ]
+        
+        missing = []
+        for module in required_modules:
+            if not Path(module).exists():
+                missing.append(module)
+        
+        if missing:
+            print(f'❌ 缺少核心模块: {missing}')
+            sys.exit(1)
+        else:
+            print('✅ 所有核心模块都存在')
+        "
+
+    - name: Test import integrity
+      run: |
+        python -c "
+        try:
+            from ai_town.events.event_registry import event_registry
+            from ai_town.events.event_formatter import event_formatter
+            from ai_town.agents.characters import Alice, Bob, Charlie
+            print('✅ 所有主要模块导入成功')
+        except ImportError as e:
+            print(f'❌ 导入失败: {e}')
+            exit(1)
+        "
+
+    - name: Test visualization server
+      run: |
+        python -c "
+        import asyncio
+        from ai_town.ui.visualization_server import app
+        print('✅ 可视化服务器配置正确')
+        "
+
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check README exists
+      run: |
+        if [ ! -f README.md ]; then
+          echo "❌ README.md 文件缺失"
+          exit 1
+        fi
+        echo "✅ README.md 存在"
+
+    - name: Check documentation completeness
+      run: |
+        python -c "
+        from pathlib import Path
+        import re
+        
+        readme = Path('README.md').read_text(encoding='utf-8')
+        
+        # 检查必需的文档部分
+        required_sections = [
+            'installation', 'usage', 'setup', 'getting started', 
+            'ai town', 'features', 'requirements'
+        ]
+        
+        missing_sections = []
+        for section in required_sections:
+            if not re.search(section, readme, re.IGNORECASE):
+                missing_sections.append(section)
+        
+        if len(missing_sections) > 3:  # 允许缺少一些可选部分
+            print(f'⚠️ 建议添加文档部分: {missing_sections}')
+        else:
+            print('✅ 文档内容充足')
+        "
+
+  compatibility:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: [3.9, 3.11]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Basic import test
+      run: |
+        python -c "
+        try:
+            from ai_town.events.event_registry import event_registry
+            print(f'✅ 事件系统在 ${{ matrix.os }} Python ${{ matrix.python-version }} 上工作正常')
+        except Exception as e:
+            print(f'❌ 导入失败: {e}')
+            exit(1)
+        "

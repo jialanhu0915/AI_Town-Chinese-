@@ -1,0 +1,192 @@
+name: Branch Protection Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  validate-branch-protection:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Check PR requirements
+      run: |
+        echo "🔍 验证PR是否满足分支保护要求..."
+        
+        # 检查是否有必需的标签
+        if [[ "${{ github.event.pull_request.head.ref }}" =~ ^(feature|bugfix|hotfix|docs)/.+ ]]; then
+          echo "✅ 分支命名符合规范: ${{ github.event.pull_request.head.ref }}"
+        else
+          echo "⚠️ 建议使用规范的分支命名: feature/xxx, bugfix/xxx, hotfix/xxx, docs/xxx"
+        fi
+        
+        # 检查PR描述
+        if [[ -n "${{ github.event.pull_request.body }}" ]]; then
+          echo "✅ PR包含描述信息"
+        else
+          echo "❌ PR缺少描述，请添加变更说明"
+          exit 1
+        fi
+        
+        # 检查是否链接了Issue (可选)
+        if [[ "${{ github.event.pull_request.body }}" =~ (close|closes|fix|fixes|resolve|resolves).*#[0-9]+ ]]; then
+          echo "✅ PR链接了相关Issue"
+        else
+          echo "ℹ️ 建议在PR中链接相关Issue"
+        fi
+
+  check-required-files:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate required files exist
+      run: |
+        echo "📁 检查必需文件是否存在..."
+        
+        required_files=(
+          "README.md"
+          "requirements.txt" 
+          "pyproject.toml"
+          ".github/workflows/ci.yml"
+          ".github/CODEOWNERS"
+          ".flake8"
+          "pytest.ini"
+        )
+        
+        missing_files=()
+        for file in "${required_files[@]}"; do
+          if [[ ! -f "$file" ]]; then
+            missing_files+=("$file")
+          fi
+        done
+        
+        if [[ ${#missing_files[@]} -eq 0 ]]; then
+          echo "✅ 所有必需文件都存在"
+        else
+          echo "❌ 缺少必需文件: ${missing_files[*]}"
+          exit 1
+        fi
+
+  validate-codeowners:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate CODEOWNERS syntax
+      run: |
+        echo "👥 验证CODEOWNERS文件..."
+        
+        if [[ ! -f ".github/CODEOWNERS" ]]; then
+          echo "❌ CODEOWNERS文件不存在"
+          exit 1
+        fi
+        
+        # 检查基本语法
+        while IFS= read -r line; do
+          # 跳过空行和注释行
+          if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
+            continue
+          fi
+          
+          # 检查行格式 (路径 + @用户名)
+          if [[ ! "$line" =~ ^[^[:space:]]+[[:space:]]+@.+ ]]; then
+            echo "❌ CODEOWNERS语法错误: $line"
+            exit 1
+          fi
+        done < .github/CODEOWNERS
+        
+        echo "✅ CODEOWNERS语法正确"
+
+  security-baseline:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install security tools
+      run: |
+        pip install bandit safety
+    
+    - name: Quick security scan
+      run: |
+        echo "🔒 运行快速安全检查..."
+        
+        # 检查是否有明显的安全问题
+        if bandit -r ai_town/ -f json | jq -e '.results | length > 0' > /dev/null 2>&1; then
+          echo "⚠️ 发现潜在安全问题，请查看详细安全报告"
+          bandit -r ai_town/ -ll
+        else
+          echo "✅ 未发现明显安全问题"
+        fi
+        
+        # 检查依赖项
+        if ! safety check --json > /dev/null 2>&1; then
+          echo "⚠️ 发现依赖项安全问题，请更新相关包"
+          safety check
+        else
+          echo "✅ 依赖项安全检查通过"
+        fi
+
+  documentation-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check documentation updates
+      run: |
+        echo "📚 检查文档是否需要更新..."
+        
+        # 检查是否修改了核心代码但没有更新文档
+        changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null || echo "")
+        
+        core_changed=false
+        docs_changed=false
+        
+        for file in $changed_files; do
+          if [[ "$file" =~ ^ai_town/(core|events|agents)/ ]]; then
+            core_changed=true
+          elif [[ "$file" =~ \.(md|rst|txt)$ ]] || [[ "$file" =~ ^docs/ ]]; then
+            docs_changed=true
+          fi
+        done
+        
+        if [[ "$core_changed" == true && "$docs_changed" == false ]]; then
+          echo "⚠️ 核心代码有变更，建议同时更新相关文档"
+        else
+          echo "✅ 文档检查通过"
+        fi
+
+  pr-size-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Check PR size
+      run: |
+        echo "📏 检查PR大小..."
+        
+        additions=${{ github.event.pull_request.additions }}
+        deletions=${{ github.event.pull_request.deletions }}
+        total_changes=$((additions + deletions))
+        
+        if [[ $total_changes -gt 1000 ]]; then
+          echo "⚠️ PR变更较大 ($total_changes 行)，建议拆分为更小的PR"
+          echo "   - 添加: $additions 行"
+          echo "   - 删除: $deletions 行"
+        elif [[ $total_changes -gt 500 ]]; then
+          echo "ℹ️ PR变更中等 ($total_changes 行)，请确保充分测试"
+        else
+          echo "✅ PR大小合适 ($total_changes 行)"
+        fi

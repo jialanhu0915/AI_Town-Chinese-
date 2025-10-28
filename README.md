@@ -1,6 +1,22 @@
 # 🏘️ AI Town - 多智能体生活模拟系统
 
+<p align="center">
+  <img src="https://github.com/your-username/AI_Town/workflows/AI%20Town%20CI%2FCD%20Pipeline/badge.svg" alt="CI Status">
+  <img src="https://github.com/your-username/AI_Town/workflows/Branch%20Protection%20Validation/badge.svg" alt="Branch Protection">
+  <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+">
+  <img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code style: black">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/security-bandit-yellow.svg" alt="Security: bandit">
+  <img src="https://img.shields.io/badge/%20imports-isort-%231674b1" alt="Imports: isort">
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
+  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT">
+</p>
+
 一个基于大语言模型（LLM）驱动的多智能体生活模拟系统，灵感来源于斯坦福 AI Town 项目。智能体们拥有记忆、规划和反思能力，能在虚拟小镇中进行自然的社交互动和生活模拟。
+
+> **⚠️ 注意**: 请将上面的 `your-username` 替换为实际的GitHub用户名或组织名
 
 ## 🎯 **项目特色**
 

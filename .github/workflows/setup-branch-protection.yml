@@ -1,0 +1,192 @@
+name: Setup Branch Protection
+
+# 这个工作流用于自动化设置分支保护规则
+# 需要管理员权限和GITHUB_TOKEN配置
+
+on:
+  workflow_dispatch: # 手动触发
+    inputs:
+      branch_name:
+        description: '要保护的分支名称'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - develop
+      protection_level:
+        description: '保护级别'
+        required: true
+        default: 'strict'
+        type: choice
+        options:
+          - strict    # 严格保护（推荐用于主分支）
+          - moderate  # 中等保护（推荐用于开发分支）
+          - basic     # 基础保护
+
+jobs:
+  setup-protection:
+    runs-on: ubuntu-latest
+    if: github.actor == 'repository_owner' || contains(github.actor, 'admin')
+    
+    steps:
+    - name: Setup Branch Protection Rules
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const branch = '${{ github.event.inputs.branch_name }}';
+          const level = '${{ github.event.inputs.protection_level }}';
+          
+          console.log(`设置分支 ${branch} 的保护规则 (级别: ${level})`);
+          
+          // 基础检查列表
+          let basicChecks = [
+            'test',
+            'security',
+            'build-and-validate'
+          ];
+          
+          // 严格检查列表  
+          let strictChecks = [
+            ...basicChecks,
+            'documentation',
+            'compatibility / ubuntu-latest (3.9)',
+            'compatibility / ubuntu-latest (3.11)', 
+            'compatibility / windows-latest (3.9)',
+            'compatibility / windows-latest (3.11)',
+            'compatibility / macos-latest (3.9)',
+            'compatibility / macos-latest (3.11)',
+            'validate-branch-protection',
+            'check-required-files',
+            'validate-codeowners'
+          ];
+          
+          // 根据保护级别选择检查
+          let requiredChecks;
+          let reviewCount;
+          let dismissStaleReviews;
+          let requireCodeOwnerReviews;
+          let restrictPushes;
+          
+          switch(level) {
+            case 'strict':
+              requiredChecks = strictChecks;
+              reviewCount = 2;
+              dismissStaleReviews = true;
+              requireCodeOwnerReviews = true;
+              restrictPushes = true;
+              break;
+            case 'moderate':
+              requiredChecks = [...basicChecks, 'documentation'];
+              reviewCount = 1;
+              dismissStaleReviews = true;
+              requireCodeOwnerReviews = false;
+              restrictPushes = false;
+              break;
+            case 'basic':
+              requiredChecks = basicChecks;
+              reviewCount = 1;
+              dismissStaleReviews = false;
+              requireCodeOwnerReviews = false;
+              restrictPushes = false;
+              break;
+          }
+          
+          // 配置分支保护规则
+          const protection = {
+            required_status_checks: {
+              strict: true,
+              contexts: requiredChecks
+            },
+            enforce_admins: level === 'strict',
+            required_pull_request_reviews: {
+              required_approving_review_count: reviewCount,
+              dismiss_stale_reviews: dismissStaleReviews,
+              require_code_owner_reviews: requireCodeOwnerReviews,
+              require_last_push_approval: level === 'strict'
+            },
+            restrictions: restrictPushes ? {
+              users: [],
+              teams: ['core-team', 'maintainers']
+            } : null,
+            required_conversation_resolution: level !== 'basic',
+            block_creations: false
+          };
+          
+          try {
+            await github.rest.repos.updateBranchProtection({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: branch,
+              ...protection
+            });
+            
+            console.log(`✅ 成功设置 ${branch} 分支保护规则`);
+            console.log(`   - 保护级别: ${level}`);
+            console.log(`   - 必需审查: ${reviewCount} 人`);
+            console.log(`   - 状态检查: ${requiredChecks.length} 项`);
+            
+          } catch (error) {
+            console.error(`❌ 设置分支保护失败: ${error.message}`);
+            throw error;
+          }
+
+  validate-setup:
+    runs-on: ubuntu-latest
+    needs: setup-protection
+    
+    steps:
+    - name: Validate Protection Rules
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const branch = '${{ github.event.inputs.branch_name }}';
+          
+          try {
+            const { data: protection } = await github.rest.repos.getBranchProtection({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: branch
+            });
+            
+            console.log(`🔍 验证 ${branch} 分支保护规则:`);
+            console.log(`   ✅ 状态检查已启用: ${protection.required_status_checks?.contexts?.length || 0} 项`);
+            console.log(`   ✅ PR审查要求: ${protection.required_pull_request_reviews?.required_approving_review_count || 0} 人`);
+            console.log(`   ✅ 管理员强制: ${protection.enforce_admins?.enabled ? '是' : '否'}`);
+            console.log(`   ✅ 清除过时审查: ${protection.required_pull_request_reviews?.dismiss_stale_reviews ? '是' : '否'}`);
+            
+            // 列出所有状态检查
+            if (protection.required_status_checks?.contexts?.length > 0) {
+              console.log(`\n📋 必需状态检查:`);
+              protection.required_status_checks.contexts.forEach(check => {
+                console.log(`   - ${check}`);
+              });
+            }
+            
+          } catch (error) {
+            console.error(`❌ 验证分支保护失败: ${error.message}`);
+            throw error;
+          }
+
+  generate-summary:
+    runs-on: ubuntu-latest
+    needs: [setup-protection, validate-setup]
+    
+    steps:
+    - name: Generate Setup Summary
+      run: |
+        echo "# 🔒 分支保护设置完成" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📋 配置详情" >> $GITHUB_STEP_SUMMARY
+        echo "- **分支**: \`${{ github.event.inputs.branch_name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **保护级别**: \`${{ github.event.inputs.protection_level }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **配置时间**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "- **配置者**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## ✅ 下一步" >> $GITHUB_STEP_SUMMARY
+        echo "1. 验证所有CI工作流正常运行" >> $GITHUB_STEP_SUMMARY
+        echo "2. 测试创建PR以确保保护规则生效" >> $GITHUB_STEP_SUMMARY
+        echo "3. 通知团队成员新的分支保护策略" >> $GITHUB_STEP_SUMMARY
+        echo "4. 更新开发文档和贡献指南" >> $GITHUB_STEP_SUMMARY
