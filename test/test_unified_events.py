@@ -3,16 +3,16 @@
 验证事件注册表和格式化器的功能
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from ai_town.events.event_registry import event_registry
 from ai_town.events.event_formatter import event_formatter
+from ai_town.events.event_registry import event_registry
 
 
 def test_event_registry():

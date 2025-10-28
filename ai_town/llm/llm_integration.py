@@ -6,11 +6,12 @@ AI Town LLM 集成模块
 import asyncio
 import json
 import logging
-from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
-import httpx
 import os
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +155,7 @@ class MockLLMProvider(LLMProvider):
     async def generate(self, prompt: str, context: Dict[str, Any] = None) -> LLMResponse:
         """生成模拟响应"""
         import random
-        
+
         # 简单的关键词匹配
         prompt_lower = prompt.lower()
         
@@ -270,7 +271,7 @@ def setup_default_llm_providers():
     """设置默认的 LLM 提供者"""
     from ai_town.config import LLM_CONFIG
     from ai_town.config_loader import load_env_file
-    
+
     # 加载配置文件
     load_env_file()
     

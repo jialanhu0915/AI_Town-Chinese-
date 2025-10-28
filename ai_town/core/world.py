@@ -3,16 +3,16 @@
 管理整个 AI Town 的世界状态、事件和智能体协调
 """
 
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field
-from datetime import datetime
 import asyncio
 import json
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
+from ai_town.agents.base_agent import BaseAgent, Observation, Position
 from ai_town.core.time_manager import GameTime
 from ai_town.environment.map import GameMap
-from ai_town.agents.base_agent import BaseAgent, Position, Observation
 
 
 @dataclass
@@ -478,7 +478,7 @@ class World:
         """保存世界状态到文件"""
         import os
         from pathlib import Path
-        
+
         # 确保数据目录存在
         data_dir = Path("ai_town/data/simulation_results")
         data_dir.mkdir(parents=True, exist_ok=True)

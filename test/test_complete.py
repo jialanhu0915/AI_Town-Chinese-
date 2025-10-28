@@ -23,7 +23,7 @@ async def test_all_agents():
         from ai_town.agents.agent_manager import agent_manager
         from ai_town.core.time_manager import GameTime
         from ai_town.core.world import World
-        
+
         # 初始化游戏时间
         GameTime.initialize(time_multiplier=5.0)
         print(f'✅ 游戏时间系统初始化成功')
@@ -156,9 +156,9 @@ def test_extensibility():
     print(f'\n🔧 测试系统可扩展性...')
     
     try:
-        from ai_town.agents.agent_manager import register_custom_agent, AgentRegistry
+        from ai_town.agents.agent_manager import AgentRegistry, register_custom_agent
         from ai_town.agents.base_agent import BaseAgent, Position
-        
+
         # 创建一个测试智能体类
         class TestAgent(BaseAgent):
             def __init__(self):

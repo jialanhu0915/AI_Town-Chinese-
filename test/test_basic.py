@@ -28,7 +28,7 @@ except Exception as e:
 
 try:
     from ai_town.agents.agent_manager import agent_manager
-    
+
     # 测试智能体管理器
     available_agents = agent_manager.registry.get_available_agents()
     print(f'✅ 智能体管理器测试成功')

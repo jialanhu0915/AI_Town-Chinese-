@@ -6,22 +6,23 @@ AI Town 可视化 WebSocket 服务
 import asyncio
 import json
 import logging
-from typing import Dict, Set
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-import uvicorn
-import sys
 import os
+import sys
 from pathlib import Path
+from typing import Dict, Set
+
+import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
 
-from ai_town.core.world import World
-from ai_town.core.time_manager import GameTime
 from ai_town.agents.agent_manager import agent_manager
+from ai_town.core.time_manager import GameTime
+from ai_town.core.world import World
 from ai_town.events.event_formatter import event_formatter
 
 # 配置日志
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 manager = None
 
 from contextlib import asynccontextmanager
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

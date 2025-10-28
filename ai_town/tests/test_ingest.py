@@ -1,6 +1,7 @@
 import os
-from ai_town.scripts.ingest_docs import ingest
+
 from ai_town.retrieval.storage import load_manifest
+from ai_town.scripts.ingest_docs import ingest
 
 
 def test_ingest_txt(tmp_path):

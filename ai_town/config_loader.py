@@ -5,7 +5,7 @@ AI Town 配置加载器
 
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -58,11 +58,11 @@ def load_env_file(env_path: Path = None) -> Dict[str, str]:
 def get_llm_config_for_agent(agent_name: str) -> Dict[str, Any]:
     """获取指定智能体的 LLM 配置"""
     try:
-        from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
+        from ai_town.config import AGENT_LLM_CONFIG, LLM_CONFIG
     except ImportError:
         import sys
         sys.path.append(str(PROJECT_ROOT))
-        from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
+        from ai_town.config import AGENT_LLM_CONFIG, LLM_CONFIG
     
     # 获取智能体特定配置，如果不存在则使用默认配置
     agent_config = AGENT_LLM_CONFIG.get(agent_name, AGENT_LLM_CONFIG["default"])
@@ -87,11 +87,11 @@ def switch_llm_model(model_name: str):
 def show_current_config():
     """显示当前 LLM 配置"""
     try:
-        from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
+        from ai_town.config import AGENT_LLM_CONFIG, LLM_CONFIG
     except ImportError:
         import sys
         sys.path.append(str(PROJECT_ROOT))
-        from ai_town.config import LLM_CONFIG, AGENT_LLM_CONFIG
+        from ai_town.config import AGENT_LLM_CONFIG, LLM_CONFIG
     
     print("🔧 当前 AI Town LLM 配置:")
     print("=" * 50)

@@ -3,13 +3,13 @@
 实现 AI Town 中智能体的核心架构
 """
 
+import asyncio
+import uuid
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
-import uuid
-import asyncio
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 from ai_town.agents.memory.memory_stream import MemoryStream
 from ai_town.agents.planning.planner import ActionPlanner

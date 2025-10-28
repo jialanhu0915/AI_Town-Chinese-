@@ -2,8 +2,8 @@
 AI Town 配置文件
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 
 # 基础路径设置
 ROOT = Path(__file__).parent

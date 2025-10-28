@@ -3,20 +3,20 @@
 验证 Alice、Bob、Charlie 是否正确升级为 LLM 驱动的智能体
 """
 
-import sys
 import asyncio
+import sys
 from pathlib import Path
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent
 sys.path.append(str(project_root))
 
+from ai_town.agents.base_agent import Observation, Position
 from ai_town.agents.characters.alice import Alice
 from ai_town.agents.characters.bob import Bob
 from ai_town.agents.characters.charlie import Charlie
 from ai_town.core.time_manager import GameTime
 from ai_town.llm.llm_integration import llm_manager, setup_default_llm_providers
-from ai_town.agents.base_agent import Observation, Position
 
 
 async def test_llm_agents():

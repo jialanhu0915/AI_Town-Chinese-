@@ -1,4 +1,5 @@
 import numpy as np
+
 from ai_town.retrieval.faiss_utils import build_faiss_index, load_faiss_index, search_index
 
 

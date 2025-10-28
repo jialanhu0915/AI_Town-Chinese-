@@ -3,9 +3,10 @@
 快速验证AI Town的主要功能模块
 """
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent
@@ -15,8 +16,8 @@ sys.path.insert(0, str(project_root))
 def test_core_imports():
     """测试核心模块导入"""
     try:
-        from ai_town.events.event_registry import event_registry
         from ai_town.events.event_formatter import event_formatter
+        from ai_town.events.event_registry import event_registry
         assert event_registry is not None
         assert event_formatter is not None
         print("✅ 核心事件系统导入成功")
@@ -27,9 +28,9 @@ def test_core_imports():
 def test_agent_imports():
     """测试智能体模块导入"""
     try:
-        from ai_town.agents.base_agent import BaseAgent, Position, AgentState
+        from ai_town.agents.base_agent import AgentState, BaseAgent, Position
         from ai_town.agents.characters.alice import Alice
-        from ai_town.agents.characters.bob import Bob  
+        from ai_town.agents.characters.bob import Bob
         from ai_town.agents.characters.charlie import Charlie
         
         assert BaseAgent is not None
@@ -46,7 +47,7 @@ def test_agent_imports():
 def test_web_server_imports():
     """测试Web服务器模块导入"""
     try:
-        from ai_town.ui.visualization_server import app, VisualizationManager
+        from ai_town.ui.visualization_server import VisualizationManager, app
         assert app is not None
         assert VisualizationManager is not None
         print("✅ Web服务器模块导入成功")
@@ -56,9 +57,9 @@ def test_web_server_imports():
 
 def test_event_system_integration():
     """测试事件系统集成"""
-    from ai_town.events.event_registry import event_registry
     from ai_town.events.event_formatter import event_formatter
-    
+    from ai_town.events.event_registry import event_registry
+
     # 测试事件注册
     all_events = event_registry.get_all_events()
     assert len(all_events) > 0, "应该有注册的事件类型"
@@ -82,7 +83,7 @@ def test_agent_creation():
     from ai_town.agents.characters.alice import Alice
     from ai_town.agents.characters.bob import Bob
     from ai_town.agents.characters.charlie import Charlie
-    
+
     # 测试创建智能体
     alice = Alice()
     bob = Bob()

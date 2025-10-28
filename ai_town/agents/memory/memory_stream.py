@@ -3,12 +3,12 @@
 实现 AI Town 论文中的记忆流架构
 """
 
-from typing import List, Dict, Optional, Any
-from datetime import datetime, timedelta
-from dataclasses import dataclass
-import math
 import json
+import math
 import os
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 from ai_town.core.time_manager import GameTime
 
@@ -228,7 +228,7 @@ class MemoryStream:
         """从文本中提取关键词"""
         # 简单的关键词提取（实际项目中可以使用更复杂的NLP技术）
         import re
-        
+
         # 移除标点符号并转为小写
         clean_text = re.sub(r'[^\w\s]', ' ', text.lower())
         words = clean_text.split()

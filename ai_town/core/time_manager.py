@@ -3,9 +3,9 @@
 管理 AI Town 中的时间流逝和调度
 """
 
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional
-import asyncio
 
 
 class GameTime:

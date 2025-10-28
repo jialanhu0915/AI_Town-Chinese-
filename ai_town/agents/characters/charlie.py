@@ -3,10 +3,11 @@ Charlie - LLM 增强的上班族智能体
 新来镇上的年轻办公室职员，使用大语言模型驱动适应和社交决策
 """
 
-from ai_town.agents.llm_enhanced_agent import LLMEnhancedAgent
-from ai_town.agents.base_agent import Position
-from typing import List, Dict, Any
 import random
+from typing import Any, Dict, List
+
+from ai_town.agents.base_agent import Position
+from ai_town.agents.llm_enhanced_agent import LLMEnhancedAgent
 
 
 class Charlie(LLMEnhancedAgent):
@@ -209,8 +210,8 @@ class Charlie(LLMEnhancedAgent):
     
     async def _llm_decide_action(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """使用 LLM 决定 Charlie 的下一个行为"""
-        from ai_town.llm.llm_integration import ask_llm
         from ai_town.core.time_manager import GameTime
+        from ai_town.llm.llm_integration import ask_llm
         
         current_time = GameTime.now()
         time_of_day = GameTime.get_time_of_day()

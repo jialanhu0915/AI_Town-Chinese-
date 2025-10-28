@@ -3,16 +3,16 @@
 验证配置系统和模型切换是否正常工作
 """
 
-import sys
 import asyncio
+import sys
 from pathlib import Path
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent
 sys.path.append(str(project_root))
 
-from ai_town.llm.llm_integration import setup_default_llm_providers, ask_llm, chat_with_llm
-from ai_town.config_loader import initialize_config, get_current_llm_model
+from ai_town.config_loader import get_current_llm_model, initialize_config
+from ai_town.llm.llm_integration import ask_llm, chat_with_llm, setup_default_llm_providers
 
 
 async def test_deepseek_model():

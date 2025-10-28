@@ -3,12 +3,13 @@ Alice - LLM 增强的智能体角色
 一个友好的咖啡店老板，使用大语言模型驱动行为和对话
 """
 
-from ai_town.agents.llm_enhanced_agent import LLMEnhancedAgent
-from ai_town.agents.base_agent import Position
-from ai_town.core.time_manager import GameTime
-from typing import List, Dict, Any
 import asyncio
 import random
+from typing import Any, Dict, List
+
+from ai_town.agents.base_agent import Position
+from ai_town.agents.llm_enhanced_agent import LLMEnhancedAgent
+from ai_town.core.time_manager import GameTime
 
 
 class Alice(LLMEnhancedAgent):
@@ -286,8 +287,9 @@ class Alice(LLMEnhancedAgent):
     
     async def _decide_next_action(self) -> Dict[str, Any]:
         """Alice特定的行为决策"""
-        from ai_town.core.time_manager import GameTime
         import random
+
+        from ai_town.core.time_manager import GameTime
         
         current_time = GameTime.now()
         time_of_day = GameTime.get_time_of_day()

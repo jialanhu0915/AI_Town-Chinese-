@@ -3,14 +3,14 @@ LLM 增强的智能体基类
 为智能体添加大语言模型驱动的推理和决策能力
 """
 
-from typing import Dict, List, Any, Optional
-import json
 import asyncio
+import json
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from ai_town.agents.base_agent import BaseAgent, Position, Observation
-from ai_town.llm.llm_integration import llm_manager, ask_llm, chat_with_llm
+from ai_town.agents.base_agent import BaseAgent, Observation, Position
 from ai_town.core.time_manager import GameTime
+from ai_town.llm.llm_integration import ask_llm, chat_with_llm, llm_manager
 
 
 class LLMEnhancedAgent(BaseAgent):
@@ -326,7 +326,7 @@ class LLMEnhancedAgent(BaseAgent):
     async def _llm_decide_action(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """使用 LLM 决定下一个行为"""
         from ai_town.llm.llm_integration import ask_llm
-        
+
         # 构建决策上下文
         personality_desc = f"你是{self.name}，{self.age}岁，{self.occupation}。{self.background}"
         
@@ -444,7 +444,7 @@ JSON响应："""
     async def _llm_respond_to_conversation(self, other_agent_name: str, message: str) -> str:
         """使用 LLM 回应对话"""
         from ai_town.llm.llm_integration import chat_with_llm
-        
+
         # 获取或初始化对话历史
         if other_agent_name not in self.conversation_history:
             self.conversation_history[other_agent_name] = []

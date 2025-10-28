@@ -2,11 +2,11 @@
 AI Town 环境系统 - 世界地图
 """
 
-from typing import Dict, List, Tuple, Optional, Any
-from dataclasses import dataclass
-from enum import Enum
 import json
 import math
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class TerrainType(Enum):
@@ -216,7 +216,7 @@ class GameMap:
             return self.path_cache[cache_key]
         
         # A* 算法实现
-        from heapq import heappush, heappop
+        from heapq import heappop, heappush
         
         def heuristic(a: Tuple[int, int], b: Tuple[int, int]) -> float:
             return abs(a[0] - b[0]) + abs(a[1] - b[1])

@@ -4,17 +4,17 @@ AI Town 模拟启动器
 """
 
 import asyncio
-import sys
 import os
+import sys
 from pathlib import Path
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
-from ai_town.core.world import World
-from ai_town.core.time_manager import GameTime
 from ai_town.agents.agent_manager import agent_manager
+from ai_town.core.time_manager import GameTime
+from ai_town.core.world import World
 
 
 async def main():

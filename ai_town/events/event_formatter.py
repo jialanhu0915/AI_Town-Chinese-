@@ -3,8 +3,9 @@
 基于事件注册表提供统一的事件描述生成和显示格式化
 """
 
-from typing import Dict, Any, Optional
-from ai_town.events.event_registry import event_registry, EventMetadata
+from typing import Any, Dict, Optional
+
+from ai_town.events.event_registry import EventMetadata, event_registry
 
 
 class EventFormatter:

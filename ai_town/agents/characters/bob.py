@@ -3,9 +3,10 @@ Bob - LLM 增强的书店老板智能体
 安静博学的书店经营者，使用大语言模型驱动深度思考和对话
 """
 
-from ai_town.agents.llm_enhanced_agent import LLMEnhancedAgent
+from typing import Any, Dict, List
+
 from ai_town.agents.base_agent import Position
-from typing import List, Dict, Any
+from ai_town.agents.llm_enhanced_agent import LLMEnhancedAgent
 
 
 class Bob(LLMEnhancedAgent):

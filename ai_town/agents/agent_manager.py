@@ -3,7 +3,8 @@
 负责智能体的创建、注册和管理
 """
 
-from typing import Dict, List, Type, Optional
+from typing import Dict, List, Optional, Type
+
 from ai_town.agents.base_agent import BaseAgent
 from ai_town.agents.characters import Alice, Bob, Charlie
 

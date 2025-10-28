@@ -3,9 +3,9 @@
 集中管理所有事件类型的元数据，实现前后端统一的事件处理
 """
 
-from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 
 class EventCategory(Enum):

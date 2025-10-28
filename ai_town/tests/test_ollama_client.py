@@ -1,4 +1,5 @@
 import pytest
+
 from ai_town.core.ollama_client import OllamaClient
 
 
