@@ -1,47 +1,14 @@
-# AI Town 代码审查者配置
-# 
-# 此文件定义了不同文件和目录的代码审查者
-# 当创建Pull Request时，GitHub会自动请求相应的审查者
+# AI Town 代码审查配置
+# 所有代码变更都需要审查
 
-# 全局默认审查者 - 所有文件
-* @project-maintainer
+# 默认审查者
+* @maintainer
 
-# 核心系统模块 - 需要核心团队审查
-/ai_town/core/ @core-team @project-maintainer
-/ai_town/agents/ @core-team @project-maintainer
+# 核心代码需要额外审查
+/ai_town/core/ @maintainer @core-developer
+/ai_town/events/ @maintainer @core-developer
 
-# 事件系统 - 统一事件系统专门团队
-/ai_town/events/ @event-system-team @project-maintainer
-/test/test_unified_events.py @event-system-team @project-maintainer
-
-# UI和可视化 - 前端团队
-/ai_town/ui/ @frontend-team @project-maintainer
-/ai_town/ui/templates/ @frontend-team @project-maintainer
-
-# 配置和基础设施
-/.github/ @devops-team @project-maintainer
-/requirements.txt @devops-team @project-maintainer
-/pyproject.toml @devops-team @project-maintainer
-/.flake8 @devops-team @project-maintainer
-/pytest.ini @devops-team @project-maintainer
-
-# 测试文件
-/test/ @qa-team @project-maintainer
-
-# 文档
-*.md @docs-team @project-maintainer
-/docs/ @docs-team @project-maintainer
-
-# 角色配置文件
-/ai_town/agents/characters/ @character-team @project-maintainer
-
-# LLM相关配置
-/ai_town/llm/ @llm-team @project-maintainer
-/config_manager.py @llm-team @project-maintainer
-
-# 环境配置 - 需要额外谨慎
-/.env* @devops-team @project-maintainer
-/run_ai_town.bat @devops-team @project-maintainer
-
-# 数据库和持久化
-/ai_town/memory/ @data-team @project-maintainer
+# 配置文件
+/.github/ @maintainer
+/requirements.txt @maintainer
+/pyproject.toml @maintainer
